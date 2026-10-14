@@ -1,0 +1,30 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Scraps.Desktop.ViewModels"
+             x:Class="Scraps.Desktop.Views.HistoryView"
+             x:DataType="vm:HistoryViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="8" Margin="16" MaxWidth="640" HorizontalAlignment="Stretch">
+      <Grid ColumnDefinitions="*,Auto">
+        <TextBlock Grid.Column="0" Text="Histórico" FontSize="20" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <Button Grid.Column="1" Content="Atualizar" Command="{Binding RefreshCommand}" />
+      </Grid>
+      <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="vm:HistoryItemViewModel">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,4">
+              <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Label}" TextWrapping="Wrap" />
+              <TextBlock Grid.Row="1" Grid.Column="0" Opacity="0.8"
+                         Text="{Binding StatusText, StringFormat='{}{0} · '}" />
+              <TextBlock Grid.Row="2" Grid.Column="0" Foreground="Firebrick" TextWrapping="Wrap"
+                         Text="{Binding ErrorMessage}" />
+              <Button Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Content="Abrir pasta"
+                      Command="{Binding OpenFolderCommand}" Margin="8,0,0,0" />
+            </Grid>
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+      <Button Content="Carregar mais" Command="{Binding LoadNextPageCommand}" IsVisible="{Binding HasMore}" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Scraps.Infrastructure.Downloads;
@@ -22,6 +23,9 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
     [ObservableProperty]
     private QueueViewModel? _queue;
 
+    [ObservableProperty]
+    private HistoryViewModel? _history;
+
     public bool HasStartupMessage => StartupMessage is not null;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -35,6 +39,7 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
             var queue = new QueueViewModel(services.Coordinator, action => Dispatcher.UIThread.Post(action));
             Queue = queue;
             NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath(), queue.Track);
+            History = new HistoryViewModel(services.History, OpenFolder);
             StartupMessage = null;
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException)
@@ -42,6 +47,9 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
             StartupMessage = $"Não foi possível iniciar: {exception.Message}";
         }
     }
+
+    // Abre o explorador do sistema na pasta, sem montar comando de shell.
+    private static void OpenFolder(string path) => Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })?.Dispose();
 
     public async ValueTask DisposeAsync()
     {

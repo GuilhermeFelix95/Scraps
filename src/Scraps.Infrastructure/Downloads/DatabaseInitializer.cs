@@ -24,7 +24,8 @@ public static class DatabaseInitializer
                 preset TEXT NOT NULL DEFAULT 'Original',
                 prepared_source_path TEXT NULL
             );
-            CREATE INDEX IF NOT EXISTS idx_downloads_created_at ON downloads(created_at DESC);
+            DROP INDEX IF EXISTS idx_downloads_created_at;
+            CREATE INDEX IF NOT EXISTS idx_downloads_created_id ON downloads(created_at DESC, id DESC);
             """;
 
         await using var command = connection.CreateCommand();

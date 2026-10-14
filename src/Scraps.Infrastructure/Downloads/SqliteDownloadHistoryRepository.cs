@@ -82,6 +82,42 @@ public sealed class SqliteDownloadHistoryRepository : IDownloadHistoryRepository
         return jobs;
     }
 
+    public async Task<DownloadHistoryPage> GetPageAsync(string? cursor, int pageSize, CancellationToken cancellationToken = default)
+    {
+        if (pageSize is < 1 or > DownloadHistoryPage.MaxPageSize)
+            throw new ArgumentOutOfRangeException(nameof(pageSize), $"O tamanho da página deve estar entre 1 e {DownloadHistoryPage.MaxPageSize}.");
+
+        var after = cursor is null ? ((string CreatedAt, string Id)?)null : HistoryCursor.Decode(cursor);
+        await using var connection = new SqliteConnection(_connectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var command = connection.CreateCommand();
+        // Busca uma linha a mais para saber se existe próxima página sem fazer uma segunda consulta.
+        command.CommandText = """
+            SELECT id, source, destination_path, status, created_at, updated_at, error_message, youtube_video_id, preset, prepared_source_path
+            FROM downloads
+            WHERE $createdAt IS NULL OR created_at < $createdAt OR (created_at = $createdAt AND id < $id)
+            ORDER BY created_at DESC, id DESC
+            LIMIT $limit;
+            """;
+        command.Parameters.AddWithValue("$createdAt", (object?)after?.CreatedAt ?? DBNull.Value);
+        command.Parameters.AddWithValue("$id", (object?)after?.Id ?? DBNull.Value);
+        command.Parameters.AddWithValue("$limit", pageSize + 1);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        var jobs = new List<DownloadJob>(pageSize + 1);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            jobs.Add(ReadJob(reader));
+        }
+
+        if (jobs.Count <= pageSize)
+            return new DownloadHistoryPage(jobs, NextCursor: null);
+
+        jobs.RemoveAt(jobs.Count - 1);
+        var last = jobs[^1];
+        return new DownloadHistoryPage(jobs, HistoryCursor.Encode(last.CreatedAt, last.Id));
+    }
+
     private static DownloadJob ReadJob(SqliteDataReader reader) => DownloadJob.Rehydrate(
         Guid.Parse(reader.GetString(0)),
         reader.GetString(1),

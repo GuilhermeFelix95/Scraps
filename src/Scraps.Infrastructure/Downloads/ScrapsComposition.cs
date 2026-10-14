@@ -31,6 +31,7 @@ public static class ScrapsComposition
         return new ScrapsServices
         {
             Coordinator = new DownloadCoordinator(history, executor),
+            History = history,
             Import = new MediaImportService(youTube, videoProbe, httpDownloader, toolchain),
             Toolchain = toolchain,
             ProcessRunner = processRunner,
