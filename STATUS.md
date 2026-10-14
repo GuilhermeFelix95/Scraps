@@ -4,14 +4,14 @@
 
 **Etapas do plano da interface (0 a 7):** concluídas, com revisão independente feita duas vezes e achados corrigidos. Validação visual das quatro abas e leitura do Smart App Control (`VerifiedAndReputablePolicyState = 0`, desligado) registradas em MEMORY.
 
-**Backlog original:** concluído. Pré-commit (formatação, build com avisos como erro, testes e cobertura mínima), catches vazios substituídos, ordenação UTC, mensagem de merge do ffmpeg, falha de reivindicação do worker, 403 do YouTube fechado como não reproduzido.
+**Backlog original:** concluído. Pré-commit (formatação, build com avisos como erro, testes e cobertura mínima), catches vazios substituídos, ordenação UTC, mensagem de merge do ffmpeg, falha de reivindicação do worker. O 403 do YouTube continua aberto (ver Limitações).
 
 **Propostas executadas nesta etapa:**
 - Log em arquivo diário em `%LOCALAPPDATA%\Scraps\logs`, retenção de 7 dias. Registra falhas de worker (`WorkerFaulted`) e falhas reportadas via `Trace`. Limite de retenção e pasta são os padrões; mudar exige decisão do usuário.
 - Cobertura automática no pré-commit com limite de 80% (`scripts/check-coverage.sh`), para Application e Infrastructure. O limite é o da regra do CLAUDE.md §6.
 
 **Limitações conhecidas:**
-- 403 do YouTube: fechado com base em um download de 10 s fora do app (2026-10-14). Se voltar no app, registrar o erro com a versão do yt-dlp.
+- **403 do YouTube: aberto.** Verificado só com um download de 10 s fora do app (2026-10-14), sem 403. Falta reproduzir pelo próprio app (fluxo Consultar, Enfileirar e download completo), ou o usuário aceitar explicitamente o teste externo como encerramento.
 - Job cuja reivindicação falha termina como Failed; se o banco continuar indisponível, o job só é marcado na próxima inicialização.
 - O log não rotaciona dentro do mesmo dia; com o app aberto por muito tempo, um dia pode crescer.
 
