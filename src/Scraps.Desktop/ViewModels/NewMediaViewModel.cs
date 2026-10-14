@@ -9,7 +9,8 @@ namespace Scraps.Desktop.ViewModels;
 public sealed partial class NewMediaViewModel(
     MediaImportService import,
     DownloadCoordinator coordinator,
-    string destinationDirectory) : ObservableObject
+    string destinationDirectory,
+    Action<DownloadJob>? onEnqueued = null) : ObservableObject
 {
     [ObservableProperty]
     private string _source = string.Empty;
@@ -100,6 +101,7 @@ public sealed partial class NewMediaViewModel(
         PreparedMedia = null;
         var job = await coordinator.EnqueueAsync(request, cancellationToken);
         StatusMessage = "Trabalho enfileirado.";
+        onEnqueued?.Invoke(job);
         _ = FollowJobAsync(job.Id, media);
     }
 

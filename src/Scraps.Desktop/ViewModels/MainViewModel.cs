@@ -1,3 +1,4 @@
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Scraps.Infrastructure.Downloads;
 
@@ -18,6 +19,9 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
     [ObservableProperty]
     private NewMediaViewModel? _newMedia;
 
+    [ObservableProperty]
+    private QueueViewModel? _queue;
+
     public bool HasStartupMessage => StartupMessage is not null;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -27,7 +31,10 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
             var services = await createServices(cancellationToken);
             await services.Coordinator.StartAsync(cancellationToken);
             _services = services;
-            NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath());
+            // Progresso chega da thread do worker; a fila o leva à thread de interface.
+            var queue = new QueueViewModel(services.Coordinator, action => Dispatcher.UIThread.Post(action));
+            Queue = queue;
+            NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath(), queue.Track);
             StartupMessage = null;
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException)
@@ -38,6 +45,7 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
 
     public async ValueTask DisposeAsync()
     {
+        Queue?.Dispose();
         if (_services is not null)
             await _services.DisposeAsync();
     }
