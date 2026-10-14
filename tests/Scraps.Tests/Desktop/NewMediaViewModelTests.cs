@@ -78,6 +78,33 @@ public sealed class NewMediaViewModelTests
     }
 
     [Fact]
+    public async Task Enqueue_hands_the_new_job_to_the_queue_callback()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));
+            var executor = new ImmediateExecutor(Path.Combine(root.FullName, "result.mp4"));
+            await using var coordinator = new DownloadCoordinator(repository, executor);
+            await coordinator.StartAsync();
+            DownloadJob? enqueued = null;
+            var viewModel = CreateViewModel(coordinator: coordinator, destination: root.FullName, onEnqueued: job => enqueued = job);
+            viewModel.Source = "https://youtu.be/abcdefghijk";
+            viewModel.IsAuthorized = true;
+            await viewModel.ConsultCommand.ExecuteAsync(null);
+
+            await viewModel.EnqueueCommand.ExecuteAsync(null);
+
+            Assert.NotNull(enqueued);
+            Assert.Equal("abcdefghijk", enqueued.YouTubeVideoId);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
     public async Task Enqueue_without_consult_does_nothing()
     {
         var root = Directory.CreateTempSubdirectory();
@@ -101,7 +128,8 @@ public sealed class NewMediaViewModelTests
     private static NewMediaViewModel CreateViewModel(
         CountingProbe? probe = null,
         DownloadCoordinator? coordinator = null,
-        string? destination = null)
+        string? destination = null,
+        Action<DownloadJob>? onEnqueued = null)
     {
         var videoInfo = new VideoInfo(1920, 1080, TimeSpan.FromSeconds(2));
         var youTube = new StubYouTubeVideoSource(new YouTubeVideoMetadata("abcdefghijk", "Sample video", videoInfo));
@@ -109,7 +137,7 @@ public sealed class NewMediaViewModelTests
         var downloadCoordinator = coordinator ?? new DownloadCoordinator(
             new SqliteDownloadHistoryRepository(Path.Combine(Path.GetTempPath(), $"scraps-test-{Guid.NewGuid():N}.db")),
             new ImmediateExecutor(string.Empty));
-        return new NewMediaViewModel(import, downloadCoordinator, destination ?? Path.GetTempPath());
+        return new NewMediaViewModel(import, downloadCoordinator, destination ?? Path.GetTempPath(), onEnqueued);
     }
 
     private static async Task WaitUntil(Func<bool> condition)

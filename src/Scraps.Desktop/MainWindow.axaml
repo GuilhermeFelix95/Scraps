@@ -6,13 +6,20 @@
         x:DataType="vm:MainViewModel"
         Title="{Binding Title}"
         MinWidth="480" MinHeight="360" Width="720" Height="560">
-  <Grid RowDefinitions="Auto,*">
+  <Grid RowDefinitions="Auto,*,*">
     <TextBlock Grid.Row="0" Margin="16,12" Text="{Binding StartupMessage}"
                IsVisible="{Binding HasStartupMessage}" TextWrapping="Wrap" Foreground="Firebrick" />
     <ContentControl Grid.Row="1" Content="{Binding NewMedia}">
       <ContentControl.DataTemplates>
         <DataTemplate DataType="vm:NewMediaViewModel">
           <views:NewMediaView />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
+    <ContentControl Grid.Row="2" Content="{Binding Queue}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="vm:QueueViewModel">
+          <views:QueueView />
         </DataTemplate>
       </ContentControl.DataTemplates>
     </ContentControl>
