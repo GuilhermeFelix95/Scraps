@@ -11,6 +11,7 @@ public sealed class ConsoleWorkflow
     private readonly IDownloadHistoryRepository _history;
     private readonly string _destinationDirectory;
     private readonly IYouTubeVideoSource? _youTubeVideoSource;
+    private readonly MediaToolchainStatus? _toolchain;
 
     public ConsoleWorkflow(
         IVideoProbe videoProbe,
@@ -18,7 +19,8 @@ public sealed class ConsoleWorkflow
         DownloadCoordinator coordinator,
         IDownloadHistoryRepository history,
         string? destinationDirectory = null,
-        IYouTubeVideoSource? youTubeVideoSource = null)
+        IYouTubeVideoSource? youTubeVideoSource = null,
+        MediaToolchainStatus? toolchain = null)
     {
         _videoProbe = videoProbe ?? throw new ArgumentNullException(nameof(videoProbe));
         _httpDownloader = httpDownloader ?? throw new ArgumentNullException(nameof(httpDownloader));
@@ -26,6 +28,7 @@ public sealed class ConsoleWorkflow
         _history = history ?? throw new ArgumentNullException(nameof(history));
         _destinationDirectory = destinationDirectory ?? DefaultDownloadDirectory.GetPath();
         _youTubeVideoSource = youTubeVideoSource;
+        _toolchain = toolchain;
     }
 
     public async Task RunAsync(TextReader input, TextWriter output, CancellationToken cancellationToken)
@@ -47,6 +50,7 @@ public sealed class ConsoleWorkflow
         try
         {
             await output.WriteLineAsync("Scraps — processar mídia de fontes locais, diretas ou compatíveis.");
+            await WriteToolchainWarningsAsync(output);
             await output.WriteLineAsync("Cole um link do YouTube, um caminho de arquivo ou uma URL direta autorizada:");
             var submittedSource = await input.ReadLineAsync(cancellationToken);
             if (string.IsNullOrWhiteSpace(submittedSource))
@@ -123,7 +127,7 @@ public sealed class ConsoleWorkflow
                 videoInfo = await _videoProbe.ProbeAsync(probePath, cancellationToken);
             }
 
-            var presets = QualityPresetSelector.GetAvailable(videoInfo);
+            var presets = GetAvailablePresets(videoInfo);
             var videoDescription = $"{videoInfo.Width}x{videoInfo.Height} — {videoInfo.Duration:c}";
             await output.WriteLineAsync(youTubeMetadata is null
                 ? $"Vídeo: {videoDescription}"
@@ -188,6 +192,21 @@ public sealed class ConsoleWorkflow
                 Directory.Delete(stagingDirectory, recursive: true);
         }
     }
+
+    private async Task WriteToolchainWarningsAsync(TextWriter output)
+    {
+        if (_toolchain is null) return;
+        if (!_toolchain.FfmpegAvailable)
+            await output.WriteLineAsync("Aviso: ffmpeg não encontrado. Vídeos do YouTube serão baixados em formato único, que pode ter qualidade menor que a fonte. Os presets de conversão (1080p, 720p, 480p, 360p) ficam indisponíveis até que o ffmpeg seja instalado e adicionado ao PATH.");
+        if (!_toolchain.FfprobeAvailable)
+            await output.WriteLineAsync("Aviso: ffprobe não encontrado. A análise de vídeos falhará até que ele seja instalado e adicionado ao PATH.");
+    }
+
+    // Sem ffmpeg não há conversão, então só a opção Original permanece disponível.
+    private IReadOnlyList<VideoQualityPreset> GetAvailablePresets(VideoInfo videoInfo) =>
+        _toolchain is { FfmpegAvailable: false }
+            ? [VideoQualityPreset.Original]
+            : QualityPresetSelector.GetAvailable(videoInfo);
 
     private async Task<DownloadJob> WaitForTerminalAsync(Guid jobId, CancellationToken cancellationToken)
     {

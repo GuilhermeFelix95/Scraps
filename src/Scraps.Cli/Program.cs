@@ -11,11 +11,13 @@ Console.CancelKeyPress += (_, eventArgs) =>
 var allocator = new DestinationPathAllocator();
 using var httpDownloader = new HttpDirectMediaDownloader(allocator);
 var processRunner = new SystemExternalProcessRunner();
+var toolchain = await new MediaToolchainChecker(processRunner).CheckAsync(shutdown.Token);
 var ytDlpExecutable = Environment.GetEnvironmentVariable("SCRAPS_YTDLP");
 var ytDlpJavaScriptRuntime = Environment.GetEnvironmentVariable("SCRAPS_YTDLP_JS_RUNTIME");
 var youTubeVideoSource = new YtDlpYouTubeVideoSource(processRunner,
     string.IsNullOrWhiteSpace(ytDlpExecutable) ? "yt-dlp" : ytDlpExecutable,
-    string.IsNullOrWhiteSpace(ytDlpJavaScriptRuntime) ? null : ytDlpJavaScriptRuntime);
+    string.IsNullOrWhiteSpace(ytDlpJavaScriptRuntime) ? null : ytDlpJavaScriptRuntime,
+    mergeAvailable: toolchain.FfmpegAvailable);
 var videoProbe = new FfprobeVideoProbe(processRunner);
 var transcoder = new FfmpegVideoTranscoder(processRunner);
 var history = new SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath());
@@ -25,7 +27,7 @@ await using var coordinator = new DownloadCoordinator(history, executor);
 try
 {
     await coordinator.StartAsync(shutdown.Token);
-    var workflow = new ConsoleWorkflow(videoProbe, httpDownloader, coordinator, history, youTubeVideoSource: youTubeVideoSource);
+    var workflow = new ConsoleWorkflow(videoProbe, httpDownloader, coordinator, history, youTubeVideoSource: youTubeVideoSource, toolchain: toolchain);
     await workflow.RunAsync(Console.In, Console.Out, shutdown.Token);
     return 0;
 }

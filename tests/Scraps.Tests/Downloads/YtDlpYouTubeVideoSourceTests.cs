@@ -135,6 +135,59 @@ public sealed class YtDlpYouTubeVideoSourceTests
     }
 
     [Fact]
+    public async Task DownloadAsync_uses_single_file_format_when_ffmpeg_is_unavailable()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var runner = new StubProcessRunner(new ExternalProcessResult(0, string.Empty, string.Empty),
+                onRun: arguments =>
+                {
+                    var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
+                    File.WriteAllText(arguments[outputIndex + 1].Replace("%(ext)s", "mp4", StringComparison.Ordinal), "video-bytes");
+                });
+            var source = new YtDlpYouTubeVideoSource(runner, mergeAvailable: false);
+
+            await source.DownloadAsync(new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", root.FullName, null, CancellationToken.None);
+
+            var arguments = runner.Arguments!.ToArray();
+            Assert.Contains("best[ext=mp4]/best", arguments);
+            Assert.DoesNotContain("bestvideo+bestaudio/best", arguments);
+            Assert.DoesNotContain("--merge-output-format", arguments);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Fact]
+    public async Task DownloadAsync_explains_unmerged_streams_and_keeps_stderr_visible()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        var stagingDirectory = Path.Combine(root.FullName, "staging");
+        Directory.CreateDirectory(stagingDirectory);
+        try
+        {
+            var progressLines = string.Concat(Enumerable.Repeat($"SCRAPS_PROGRESS:  5.0%{Environment.NewLine}", 300));
+            var runner = new StubProcessRunner(new ExternalProcessResult(0, progressLines, "WARNING: ffmpeg not found. The formats won't be merged."),
+                onRun: arguments =>
+                {
+                    var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
+                    var outputDirectory = Path.GetDirectoryName(arguments[outputIndex + 1])!;
+                    File.WriteAllText(Path.Combine(outputDirectory, "abcdefghijk.f399.mp4"), "video-only");
+                    File.WriteAllText(Path.Combine(outputDirectory, "abcdefghijk.f251-2.webm"), "audio-only");
+                });
+            var source = new YtDlpYouTubeVideoSource(runner);
+
+            var exception = await Assert.ThrowsAsync<InvalidDataException>(() => source.DownloadAsync(
+                new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", stagingDirectory, null, CancellationToken.None));
+
+            Assert.Contains("não foram mescladas", exception.Message);
+            Assert.Contains("ffmpeg", exception.Message);
+            Assert.Contains("WARNING: ffmpeg not found", exception.Message);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Fact]
     public async Task GetMetadataAsync_rejects_non_youtube_urls_before_starting_process()
     {
         var runner = new StubProcessRunner(new ExternalProcessResult(0, "{}", string.Empty));
