@@ -7,7 +7,6 @@ namespace Scraps.Infrastructure.Downloads;
 public sealed class ConsoleWorkflow
 {
     // Página oficial do projeto; ela lista as builds de Windows de terceiros (gyan.dev e BtbN).
-    private const string FfmpegDownloadUrl = "https://ffmpeg.org/download.html";
     private static readonly TimeSpan CancellationCleanupTimeout = TimeSpan.FromSeconds(30);
 
     private readonly MediaImportService _import;
@@ -164,10 +163,8 @@ public sealed class ConsoleWorkflow
     private async Task WriteToolchainWarningsAsync(TextWriter output)
     {
         if (_toolchain is null) return;
-        if (!_toolchain.FfmpegAvailable)
-            await output.WriteLineAsync($"Aviso: ffmpeg não encontrado. Vídeos do YouTube serão baixados em formato único, que pode ter qualidade menor que a fonte. Os presets de conversão (1080p, 720p, 480p, 360p) ficam indisponíveis até que o ffmpeg seja instalado e adicionado ao PATH. Download: {FfmpegDownloadUrl}");
-        if (!_toolchain.FfprobeAvailable)
-            await output.WriteLineAsync($"Aviso: ffprobe não encontrado. A análise de vídeos falhará até que ele seja instalado e adicionado ao PATH. Ele vem no mesmo pacote do ffmpeg: {FfmpegDownloadUrl}");
+        foreach (var warning in ToolchainWarnings.From(_toolchain))
+            await output.WriteLineAsync($"Aviso: {warning}");
     }
 
     private static bool IsAffirmative(string? answer) =>

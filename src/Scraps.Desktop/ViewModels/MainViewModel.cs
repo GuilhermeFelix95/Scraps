@@ -26,6 +26,9 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
     [ObservableProperty]
     private HistoryViewModel? _history;
 
+    [ObservableProperty]
+    private ToolsViewModel? _tools;
+
     public bool HasStartupMessage => StartupMessage is not null;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
@@ -40,7 +43,10 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
             Queue = queue;
             NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath(), queue.Track);
             History = new HistoryViewModel(services.History, OpenFolder);
+            Tools = new ToolsViewModel(services.Toolchain, services.Updater, services.YtDlpExecutable);
             StartupMessage = null;
+            // Igual à CLI: a atualização roda na inicialização, com limite de tempo, sem travar a janela.
+            await Tools.CheckYtDlpAsync(cancellationToken);
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException)
         {

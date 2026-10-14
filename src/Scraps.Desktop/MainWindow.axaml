@@ -37,6 +37,15 @@
           </ContentControl.DataTemplates>
         </ContentControl>
       </TabItem>
+      <TabItem Header="Ferramentas">
+        <ContentControl Content="{Binding Tools}">
+          <ContentControl.DataTemplates>
+            <DataTemplate DataType="vm:ToolsViewModel">
+              <views:ToolsView />
+            </DataTemplate>
+          </ContentControl.DataTemplates>
+        </ContentControl>
+      </TabItem>
     </TabControl>
   </Grid>
 </Window>

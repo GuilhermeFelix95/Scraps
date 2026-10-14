@@ -32,6 +32,7 @@ public static class ScrapsComposition
         {
             Coordinator = new DownloadCoordinator(history, executor),
             History = history,
+            Updater = new YtDlpUpdater(processRunner, Path.Combine(baseDirectory, "third-party")),
             Import = new MediaImportService(youTube, videoProbe, httpDownloader, toolchain),
             Toolchain = toolchain,
             ProcessRunner = processRunner,

@@ -1,0 +1,26 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Scraps.Desktop.ViewModels"
+             x:Class="Scraps.Desktop.Views.ToolsView"
+             x:DataType="vm:ToolsViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="8" Margin="16" MaxWidth="640" HorizontalAlignment="Stretch">
+      <TextBlock Text="Ferramentas" FontSize="20" FontWeight="SemiBold" />
+      <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="6">
+        <TextBlock Grid.Row="0" Grid.Column="0" Text="ffmpeg" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding FfmpegStatus}" />
+        <TextBlock Grid.Row="1" Grid.Column="0" Text="ffprobe" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding FfprobeStatus}" />
+        <TextBlock Grid.Row="2" Grid.Column="0" Text="yt-dlp" FontWeight="SemiBold" />
+        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding YtDlpStatus}" TextWrapping="Wrap" />
+      </Grid>
+      <ItemsControl ItemsSource="{Binding Warnings}">
+        <ItemsControl.ItemTemplate>
+          <DataTemplate x:DataType="x:String">
+            <TextBlock Text="{Binding}" TextWrapping="Wrap" Foreground="DarkOrange" Margin="0,4,0,0" />
+          </DataTemplate>
+        </ItemsControl.ItemTemplate>
+      </ItemsControl>
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>
