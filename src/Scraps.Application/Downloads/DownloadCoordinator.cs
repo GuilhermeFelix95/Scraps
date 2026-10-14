@@ -144,10 +144,11 @@ public sealed class DownloadCoordinator : IAsyncDisposable
                 {
                     await ProcessJobAsync(jobId, shutdownToken);
                 }
-                // Erro de banco num job não pode parar a fila: o job segue como está no histórico e o próximo roda.
+                // Erro de banco num job não pode parar a fila: o job termina como Failed e o próximo roda.
                 catch (Exception exception) when (exception is not OperationCanceledException)
                 {
                     RaiseWorkerFault(jobId, exception);
+                    await TryFinishAsFailedAsync(jobId, exception);
                 }
             }
         }
@@ -193,6 +194,25 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         finally
         {
             RetireActive(jobId);
+        }
+    }
+
+    // Melhor esforço: se o banco continuar indisponível, a falha de recuperação também é reportada e o job só
+    // será marcado na próxima inicialização (RecoverInterruptedAsync).
+    private async Task TryFinishAsFailedAsync(Guid jobId, Exception exception)
+    {
+        try
+        {
+            var job = await _history.GetAsync(jobId, CancellationToken.None);
+            if (job is null || job.Status is DownloadStatus.Completed or DownloadStatus.Failed or DownloadStatus.Cancelled) return;
+
+            var failed = job.TransitionTo(DownloadStatus.Failed, exception.Message);
+            await _history.SaveAsync(failed, CancellationToken.None);
+            Finish(failed);
+        }
+        catch (Exception recoveryException)
+        {
+            RaiseWorkerFault(jobId, recoveryException);
         }
     }
 
