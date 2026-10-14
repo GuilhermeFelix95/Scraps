@@ -11,15 +11,17 @@ Console.CancelKeyPress += (_, eventArgs) =>
 var allocator = new DestinationPathAllocator();
 using var httpDownloader = new HttpDirectMediaDownloader(allocator);
 var processRunner = new SystemExternalProcessRunner();
-var toolchain = await new MediaToolchainChecker(processRunner).CheckAsync(shutdown.Token);
-var ytDlpExecutable = Environment.GetEnvironmentVariable("SCRAPS_YTDLP");
+var ffmpegExecutable = ToolLocator.Resolve(Environment.GetEnvironmentVariable("SCRAPS_FFMPEG"), AppContext.BaseDirectory, "ffmpeg", "ffmpeg");
+var ffprobeExecutable = ToolLocator.Resolve(null, AppContext.BaseDirectory, "ffmpeg", "ffprobe");
+var ytDlpExecutable = ToolLocator.Resolve(Environment.GetEnvironmentVariable("SCRAPS_YTDLP"), AppContext.BaseDirectory, "yt-dlp", "yt-dlp");
+var toolchain = await new MediaToolchainChecker(processRunner, ffmpegExecutable, ffprobeExecutable).CheckAsync(shutdown.Token);
 var ytDlpJavaScriptRuntime = Environment.GetEnvironmentVariable("SCRAPS_YTDLP_JS_RUNTIME");
 var youTubeVideoSource = new YtDlpYouTubeVideoSource(processRunner,
-    string.IsNullOrWhiteSpace(ytDlpExecutable) ? "yt-dlp" : ytDlpExecutable,
+    ytDlpExecutable,
     string.IsNullOrWhiteSpace(ytDlpJavaScriptRuntime) ? null : ytDlpJavaScriptRuntime,
     mergeAvailable: toolchain.FfmpegAvailable);
-var videoProbe = new FfprobeVideoProbe(processRunner);
-var transcoder = new FfmpegVideoTranscoder(processRunner);
+var videoProbe = new FfprobeVideoProbe(processRunner, ffprobeExecutable);
+var transcoder = new FfmpegVideoTranscoder(processRunner, ffmpegExecutable);
 var history = new SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath());
 var executor = new MediaDownloadExecutor(new LocalFileImporter(allocator), httpDownloader, videoProbe, transcoder, allocator, youTubeVideoSource);
 await using var coordinator = new DownloadCoordinator(history, executor);

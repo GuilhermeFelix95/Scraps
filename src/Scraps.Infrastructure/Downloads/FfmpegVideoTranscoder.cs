@@ -3,7 +3,7 @@ using Scraps.Application.Downloads;
 
 namespace Scraps.Infrastructure.Downloads;
 
-public sealed class FfmpegVideoTranscoder(IExternalProcessRunner processRunner) : IMediaTranscoder
+public sealed class FfmpegVideoTranscoder(IExternalProcessRunner processRunner, string ffmpegExecutable = "ffmpeg") : IMediaTranscoder
 {
     public async Task<string> TranscodeAsync(
         string sourcePath,
@@ -47,7 +47,7 @@ public sealed class FfmpegVideoTranscoder(IExternalProcessRunner processRunner) 
                 "-progress", "pipe:1", "-nostats", temporaryPath
             };
             var ffmpegProgress = new InlineProgress<string>(line => ReportProgress(line, sourceInfo.Duration, progress));
-            var result = await processRunner.RunAsync("ffmpeg", arguments, cancellationToken, ffmpegProgress);
+            var result = await processRunner.RunAsync(ffmpegExecutable, arguments, cancellationToken, ffmpegProgress);
             if (result.ExitCode != 0)
                 throw new InvalidOperationException($"FFmpeg failed: {result.StandardError.Trim()}");
             if (!File.Exists(temporaryPath) || new FileInfo(temporaryPath).Length == 0)

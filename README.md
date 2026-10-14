@@ -10,6 +10,16 @@ Backend para o futuro aplicativo desktop em Avalonia, com importação de arquiv
 - Cabe ao usuário ter autorização aplicável para baixar e processar a mídia. A ferramenta não determina direitos autorais, permissões ou termos aplicáveis.
 - URLs diretas continuam limitadas a HTTP/HTTPS, com validação de DNS/IP e revalidação dos redirecionamentos para bloquear redes locais/privadas. A URL direta é baixada temporariamente para inspeção e o arquivo preparado segue para a fila sem uma segunda transferência.
 
+## Ferramentas embutidas (opcional)
+
+Para não depender do PATH, rode o script de preparo. Ele baixa `yt-dlp` e `ffmpeg` das fontes oficiais, confere o SHA-256 de cada arquivo e grava em `third-party/`:
+
+```powershell
+pwsh -File scripts/fetch-tools.ps1
+```
+
+O build copia `third-party/` para junto do executável. A ordem de resolução é: variável de ambiente (`SCRAPS_YTDLP`, `SCRAPS_FFMPEG`), depois `third-party/`, e por último o PATH. Os binários não são versionados no git.
+
 ## Requisitos
 
 - .NET 10 SDK.

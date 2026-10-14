@@ -4,12 +4,12 @@ using Scraps.Application.Downloads;
 
 namespace Scraps.Infrastructure.Downloads;
 
-public sealed class FfprobeVideoProbe(IExternalProcessRunner processRunner) : IVideoProbe
+public sealed class FfprobeVideoProbe(IExternalProcessRunner processRunner, string ffprobeExecutable = "ffprobe") : IVideoProbe
 {
     public async Task<VideoInfo> ProbeAsync(string path, CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(path);
-        var result = await processRunner.RunAsync("ffprobe",
+        var result = await processRunner.RunAsync(ffprobeExecutable,
             ["-v", "error", "-show_streams", "-show_format", "-of", "json", path],
             cancellationToken);
         if (result.ExitCode != 0)
