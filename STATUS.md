@@ -15,10 +15,8 @@
 **Limitações conhecidas:**
 - Job cuja reivindicação falha termina como Failed; se o banco continuar indisponível, o job só é marcado na próxima inicialização.
 - O log não rotaciona dentro do mesmo dia; com o app aberto por muito tempo, um dia pode crescer.
-- `SCRAPS_YTDLP` continua definida na variável de usuário do Windows. Remover de vez é decisão do usuário; o app funciona sem ela.
+- `SCRAPS_YTDLP` continua definida na variável de usuário do Windows por decisão do usuário (2026-10-14). O app baixa sem ela, usando o yt-dlp empacotado.
 
 **Próximos passos:**
-1. Apagar a branch local `fix/yt-dlp-ffmpeg-location` (já incluída na `main` via #9), com OK do usuário.
-2. Decidir se a variável `SCRAPS_YTDLP` do usuário será removida de vez (decisão do usuário).
-3. Usar o app e acompanhar `%LOCALAPPDATA%\Scraps\logs` para novos erros.
-4. Se quiser outro destino ou retenção para o log, ajustar `AppLog.RetentionDays` e `AppLog.DefaultDirectory`.
+1. Usar o app e acompanhar `%LOCALAPPDATA%\Scraps\logs` para novos erros.
+2. Se quiser outro destino ou retenção para o log, ajustar `AppLog.RetentionDays` e `AppLog.DefaultDirectory`.
