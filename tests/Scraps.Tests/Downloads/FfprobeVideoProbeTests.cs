@@ -38,9 +38,26 @@ public sealed class FfprobeVideoProbeTests
         Assert.Contains("corrupt input", error.Message);
     }
 
+    [Fact]
+    public async Task ProbeAsync_runs_the_configured_ffprobe_executable()
+    {
+        var runner = new StubProcessRunner(new ExternalProcessResult(0,
+            """{"streams":[{"codec_type":"video","width":640,"height":360}],"format":{"duration":"1"}}""", ""));
+        var probe = new FfprobeVideoProbe(runner, @"C:\tools\ffprobe.exe");
+
+        await probe.ProbeAsync("sample.mp4", CancellationToken.None);
+
+        Assert.Equal(@"C:\tools\ffprobe.exe", runner.Executable);
+    }
+
     private sealed class StubProcessRunner(ExternalProcessResult result) : IExternalProcessRunner
     {
-        public Task<ExternalProcessResult> RunAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken, IProgress<string>? standardOutputProgress = null, IProgress<string>? standardErrorProgress = null) =>
-            Task.FromResult(result);
+        public string? Executable { get; private set; }
+
+        public Task<ExternalProcessResult> RunAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken, IProgress<string>? standardOutputProgress = null, IProgress<string>? standardErrorProgress = null)
+        {
+            Executable = executable;
+            return Task.FromResult(result);
+        }
     }
 }

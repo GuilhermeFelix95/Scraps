@@ -35,6 +35,25 @@ public sealed class FfmpegVideoTranscoderTests
     }
 
     [Fact]
+    public async Task TranscodeAsync_runs_the_configured_ffmpeg_executable()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var source = Path.Combine(root.FullName, "source.mp4");
+            await File.WriteAllBytesAsync(source, [1, 2, 3]);
+            var runner = new StubProcessRunner(onRun: args => File.WriteAllText(args[^1], "encoded"));
+            var transcoder = new FfmpegVideoTranscoder(runner, @"C:\tools\ffmpeg.exe");
+
+            await transcoder.TranscodeAsync(source, Path.Combine(root.FullName, "out.mp4"),
+                new VideoInfo(1920, 1080, TimeSpan.FromSeconds(1)), VideoQualityPreset.P720, null, CancellationToken.None);
+
+            Assert.Equal(@"C:\tools\ffmpeg.exe", runner.Executable);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Fact]
     public async Task TranscodeAsync_original_copies_source_bytes_without_invoking_ffmpeg()
     {
         var root = Directory.CreateTempSubdirectory();
@@ -128,9 +147,11 @@ public sealed class FfmpegVideoTranscoderTests
     private sealed class StubProcessRunner(string[]? outputLines = null, Action<IReadOnlyList<string>>? onRun = null, ExternalProcessResult? result = null) : IExternalProcessRunner
     {
         public IReadOnlyList<string> Arguments { get; private set; } = [];
+        public string? Executable { get; private set; }
 
         public Task<ExternalProcessResult> RunAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken, IProgress<string>? standardOutputProgress = null, IProgress<string>? standardErrorProgress = null)
         {
+            Executable = executable;
             Arguments = arguments.ToArray();
             onRun?.Invoke(arguments);
             foreach (var line in outputLines ?? []) standardOutputProgress?.Report(line);
