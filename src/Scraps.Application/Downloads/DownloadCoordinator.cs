@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Threading.Channels;
 
 namespace Scraps.Application.Downloads;
@@ -32,7 +33,7 @@ public sealed class DownloadCoordinator : IAsyncDisposable
     // Disparado quando o worker reivindica o job e ele passa a Downloading.
     public event Action<DownloadJob>? JobStarted;
 
-    // Falha inesperada ao processar um job (ex.: erro de banco). O job pode ficar sem conclusão até a próxima inicialização.
+    // Falha ao processar um job (erro de banco ou de observador). Um job cuja gravação falhou pode ficar sem conclusão até a próxima inicialização.
     public event Action<Guid, Exception>? WorkerFaulted;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
@@ -129,11 +130,8 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         _stopped = true;
         _queue.Writer.TryComplete();
         _shutdown.Cancel();
-        if (_worker is not null)
-        {
-            try { await _worker; }
-            catch (OperationCanceledException) { }
-        }
+        // O worker só termina por shutdown: cancelamento e falhas por job já são tratados dentro dele.
+        if (_worker is not null) await _worker;
     }
 
     private async Task ProcessQueueAsync(CancellationToken shutdownToken)
@@ -166,31 +164,41 @@ public sealed class DownloadCoordinator : IAsyncDisposable
 
         var downloading = claim.Value.Job;
         using var jobCancellation = claim.Value.Cancellation;
-        Publish(JobStarted, downloading);
+        PublishJob(JobStarted, downloading);
         try
         {
             var progress = new InlineProgress<DownloadProgress>(value => PublishProgress(jobId, value));
             var destinationPath = await _executor.ExecuteAsync(downloading, progress, jobCancellation.Token);
+            // Depois do download não há mais o que cancelar: a retirada vem antes da gravação final, para que
+            // um cancelamento que chegue agora seja recusado em vez de aceito e ignorado.
+            RetireActive(jobId);
             var completed = downloading.TransitionTo(DownloadStatus.Completed, destinationPath: destinationPath);
             await _history.SaveAsync(completed, CancellationToken.None);
             Finish(completed);
         }
         catch (OperationCanceledException) when (jobCancellation.IsCancellationRequested)
         {
+            RetireActive(jobId);
             var cancelled = downloading.TransitionTo(DownloadStatus.Cancelled);
             await _history.SaveAsync(cancelled, CancellationToken.None);
             Finish(cancelled);
         }
         catch (Exception exception)
         {
+            RetireActive(jobId);
             var failed = downloading.TransitionTo(DownloadStatus.Failed, exception.Message);
             await _history.SaveAsync(failed, CancellationToken.None);
             Finish(failed);
         }
         finally
         {
-            lock (_activeLock) _active.Remove(jobId);
+            RetireActive(jobId);
         }
+    }
+
+    private void RetireActive(Guid jobId)
+    {
+        lock (_activeLock) _active.Remove(jobId);
     }
 
     private void RaiseWorkerFault(Guid jobId, Exception exception)
@@ -200,7 +208,7 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         foreach (Action<Guid, Exception> handler in handlers.GetInvocationList())
         {
             try { handler(jobId, exception); }
-            catch { /* Observadores não podem derrubar o worker. */ }
+            catch (Exception handlerException) { Trace.TraceError($"Observador de falha do job {jobId} lançou exceção: {handlerException}"); }
         }
     }
 
@@ -228,21 +236,23 @@ public sealed class DownloadCoordinator : IAsyncDisposable
     // Observadores (UI, testes) rodam antes de liberar os waiters, para que quem espera já veja o evento.
     private void Finish(DownloadJob finished)
     {
-        Publish(JobFinished, finished);
+        PublishJob(JobFinished, finished);
         if (_completions.TryRemove(finished.Id, out var completion))
             completion.TrySetResult(finished);
     }
 
-    private static void Publish<T>(Action<T>? handlers, T value)
+    // Observador que falha não pode derrubar o worker nem deixar o job sem conclusão, mas a falha é reportada.
+    private void PublishJob(Action<DownloadJob>? handlers, DownloadJob job)
     {
         if (handlers is null) return;
-        foreach (Action<T> handler in handlers.GetInvocationList())
+        foreach (Action<DownloadJob> handler in handlers.GetInvocationList())
         {
-            try { handler(value); }
-            catch { /* Observadores não podem derrubar o worker nem deixar o job sem conclusão. */ }
+            try { handler(job); }
+            catch (Exception exception) { RaiseWorkerFault(job.Id, exception); }
         }
     }
 
+    // Observadores de progresso (UI) não podem interromper a transferência, mas a falha é reportada.
     private void PublishProgress(Guid jobId, DownloadProgress progress)
     {
         var handlers = ProgressChanged;
@@ -250,7 +260,7 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         foreach (Action<Guid, DownloadProgress> handler in handlers.GetInvocationList())
         {
             try { handler(jobId, progress); }
-            catch { /* UI observers must not fail an active media transfer. */ }
+            catch (Exception exception) { RaiseWorkerFault(jobId, exception); }
         }
     }
 

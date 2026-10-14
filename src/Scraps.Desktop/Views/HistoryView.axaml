@@ -15,7 +15,7 @@
             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Label}" TextWrapping="Wrap" />
               <TextBlock Grid.Row="1" Grid.Column="0" Opacity="0.8"
-                         Text="{Binding StatusText, StringFormat='{}{0} · '}" />
+                         Text="{Binding StatusText}" />
               <TextBlock Grid.Row="2" Grid.Column="0" Foreground="Firebrick" TextWrapping="Wrap"
                          Text="{Binding ErrorMessage}" />
               <Button Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Content="Abrir pasta"

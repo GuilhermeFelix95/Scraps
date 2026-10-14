@@ -56,7 +56,7 @@ public sealed class SystemExternalProcessRunner : IExternalProcessRunner
         {
             output.AppendLine(line);
             try { progress?.Report(line); }
-            catch { /* Progress observers must not block process output draining. */ }
+            catch (Exception exception) { Trace.TraceError($"Observador de progresso do processo lançou exceção: {exception}"); }
         }
     }
 
@@ -66,7 +66,7 @@ public sealed class SystemExternalProcessRunner : IExternalProcessRunner
         {
             if (!process.HasExited) process.Kill(entireProcessTree: true);
         }
-        catch (InvalidOperationException) { }
-        catch (System.ComponentModel.Win32Exception) { }
+        catch (InvalidOperationException exception) { Trace.TraceWarning($"Processo já encerrado ao tentar finalizá-lo: {exception.Message}"); }
+        catch (System.ComponentModel.Win32Exception exception) { Trace.TraceWarning($"Não foi possível finalizar o processo: {exception.Message}"); }
     }
 }

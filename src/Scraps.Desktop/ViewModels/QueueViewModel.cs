@@ -42,11 +42,23 @@ public sealed class QueueViewModel : IDisposable
 
     private async Task FollowAsync(Guid jobId)
     {
-        // O job pode já ter começado ou terminado antes do Track: o estado atual cobre o que os eventos perderam.
-        var current = await _coordinator.GetJobAsync(jobId);
-        if (current is not null) _post(() => Apply(current));
-        var finished = await _coordinator.WaitForFinishedAsync(jobId);
-        _post(() => Apply(finished));
+        try
+        {
+            // O job pode já ter começado ou terminado antes do Track: o estado atual cobre o que os eventos perderam.
+            var current = await _coordinator.GetJobAsync(jobId);
+            if (current is not null) _post(() => Apply(current));
+            var finished = await _coordinator.WaitForFinishedAsync(jobId);
+            _post(() => Apply(finished));
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            // Sem leitura, o status mostrado seria o último conhecido; o erro fica visível no item em vez de sumir.
+            _post(() =>
+            {
+                if (_items.TryGetValue(jobId, out var item))
+                    item.FollowError = $"Não foi possível acompanhar este job: {exception.Message}";
+            });
+        }
     }
 
     private void OnJobStarted(DownloadJob job) => _post(() => Apply(job));

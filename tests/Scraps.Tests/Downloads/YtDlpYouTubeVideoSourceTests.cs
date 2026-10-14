@@ -238,6 +238,34 @@ public sealed class YtDlpYouTubeVideoSourceTests
     }
 
     [Fact]
+    public async Task DownloadAsync_points_to_the_configured_ffmpeg_path_when_streams_are_not_merged()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        var stagingDirectory = Path.Combine(root.FullName, "staging");
+        Directory.CreateDirectory(stagingDirectory);
+        try
+        {
+            var ffmpegPath = Path.Combine(root.FullName, "tools", "ffmpeg.exe");
+            var runner = new StubProcessRunner(new ExternalProcessResult(0, string.Empty, string.Empty),
+                onRun: arguments =>
+                {
+                    var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
+                    var outputDirectory = Path.GetDirectoryName(arguments[outputIndex + 1])!;
+                    File.WriteAllText(Path.Combine(outputDirectory, "abcdefghijk.f399.mp4"), "video-only");
+                    File.WriteAllText(Path.Combine(outputDirectory, "abcdefghijk.f251-2.webm"), "audio-only");
+                });
+            var source = new YtDlpYouTubeVideoSource(runner, ffmpegExecutable: ffmpegPath);
+
+            var exception = await Assert.ThrowsAsync<InvalidDataException>(() => source.DownloadAsync(
+                new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", stagingDirectory, null, CancellationToken.None));
+
+            Assert.Contains(ffmpegPath, exception.Message);
+            Assert.DoesNotContain("acessível pelo PATH", exception.Message);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Fact]
     public async Task GetMetadataAsync_rejects_non_youtube_urls_before_starting_process()
     {
         var runner = new StubProcessRunner(new ExternalProcessResult(0, "{}", string.Empty));

@@ -10,7 +10,7 @@ internal static class HistoryCursor
 
     public static string Encode(DateTimeOffset createdAt, Guid id)
     {
-        var payload = $"{createdAt.ToString("O", CultureInfo.InvariantCulture)}{Separator}{id:D}";
+        var payload = $"{createdAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture)}{Separator}{id:D}";
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(payload));
     }
 
@@ -34,6 +34,6 @@ internal static class HistoryCursor
             throw new ArgumentException("Cursor de histórico inválido.", nameof(cursor));
         }
 
-        return (createdAt.ToString("O", CultureInfo.InvariantCulture), id.ToString("D"));
+        return (createdAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture), id.ToString("D"));
     }
 }

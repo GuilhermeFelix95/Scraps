@@ -11,14 +11,14 @@ public class DownloadCoordinatorRaceTests
         var root = Directory.CreateTempSubdirectory();
         try
         {
-            var history = new GatedHistoryRepository(new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db")));
+            var history = new GatedHistoryRepository(new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db")), DownloadStatus.Downloading);
             await using var coordinator = new DownloadCoordinator(history, new SlowExecutor(TimeSpan.FromSeconds(2), Path.Combine(root.FullName, "race.mp4")));
             await coordinator.StartAsync();
             // Armado antes do Enqueue: o worker pode reivindicar o job assim que ele entra na fila.
-            history.HoldNextDownloadingSave();
+            history.HoldNextSave();
             var job = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/race.mp4", root.FullName));
 
-            await history.DownloadingSaveHeld.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            await history.SaveHeld.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var cancel = coordinator.CancelAsync(job.Id);
             // O gate mantém o cancelamento esperando enquanto a gravação de Downloading está pendente: ele não lê o job nesse intervalo.
             // Pausa fixa de 300 ms: a asserção fica verdadeira mesmo que o cancelamento demore; não prova que a leitura ocorreria depois.
@@ -55,6 +55,33 @@ public class DownloadCoordinatorRaceTests
 
             Assert.Equal(queued.Id, running.Id);
             Assert.Equal(DownloadStatus.Downloading, running.Status);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task Cancel_after_the_download_finished_returns_false()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var history = new GatedHistoryRepository(new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db")), DownloadStatus.Completed);
+            await using var coordinator = new DownloadCoordinator(history, new SlowExecutor(TimeSpan.FromMilliseconds(10), Path.Combine(root.FullName, "done.mp4")));
+            await coordinator.StartAsync();
+            history.HoldNextSave();
+            var job = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/done.mp4", root.FullName));
+
+            // Com a gravação de Completed pendente, o download já acabou: o pedido de cancelamento não pode ser aceito.
+            await history.SaveHeld.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var accepted = await coordinator.CancelAsync(job.Id);
+            history.ReleaseHeldSave();
+
+            var finished = await coordinator.WaitForFinishedAsync(job.Id);
+            Assert.False(accepted);
+            Assert.Equal(DownloadStatus.Completed, finished.Status);
         }
         finally
         {
@@ -109,16 +136,16 @@ public class DownloadCoordinatorRaceTests
             inner.GetPageAsync(cursor, pageSize, cancellationToken);
     }
 
-    // Repositório que segura a primeira gravação de Downloading do job, para forçar a janela da corrida.
-    private sealed class GatedHistoryRepository(IDownloadHistoryRepository inner) : IDownloadHistoryRepository
+    // Repositório que segura a primeira gravação do status dado, para forçar a janela da corrida.
+    private sealed class GatedHistoryRepository(IDownloadHistoryRepository inner, DownloadStatus holdStatus) : IDownloadHistoryRepository
     {
         private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
         private bool _holdNext;
 
-        public TaskCompletionSource DownloadingSaveHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource SaveHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
         public TaskCompletionSource ReadWhileHeld { get; } = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-        public void HoldNextDownloadingSave() => _holdNext = true;
+        public void HoldNextSave() => _holdNext = true;
 
         public void ReleaseHeldSave() => _release.TrySetResult();
 
@@ -126,10 +153,10 @@ public class DownloadCoordinatorRaceTests
 
         public async Task SaveAsync(DownloadJob job, CancellationToken cancellationToken = default)
         {
-            if (_holdNext && job.Status == DownloadStatus.Downloading)
+            if (_holdNext && job.Status == holdStatus)
             {
                 _holdNext = false;
-                DownloadingSaveHeld.TrySetResult();
+                SaveHeld.TrySetResult();
                 await _release.Task;
             }
             await inner.SaveAsync(job, cancellationToken);
@@ -137,7 +164,7 @@ public class DownloadCoordinatorRaceTests
 
         public async Task<DownloadJob?> GetAsync(Guid id, CancellationToken cancellationToken = default)
         {
-            if (DownloadingSaveHeld.Task.IsCompletedSuccessfully && !_release.Task.IsCompleted)
+            if (SaveHeld.Task.IsCompletedSuccessfully && !_release.Task.IsCompleted)
                 ReadWhileHeld.TrySetResult();
             return await inner.GetAsync(id, cancellationToken);
         }
