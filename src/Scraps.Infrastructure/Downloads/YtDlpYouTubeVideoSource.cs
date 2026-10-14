@@ -19,13 +19,13 @@ public sealed class YtDlpYouTubeVideoSource : IYouTubeVideoSource
     private readonly string _executable;
     private readonly string? _javaScriptRuntime;
     // Sem ffmpeg o yt-dlp não mescla vídeo e áudio; nesse caso pedimos um formato único pronto.
-    private readonly bool _mergeAvailable;
+    private readonly string? _ffmpegExecutable;
 
     public YtDlpYouTubeVideoSource(
         IExternalProcessRunner processRunner,
         string executable = "yt-dlp",
         string? javaScriptRuntime = null,
-        bool mergeAvailable = true)
+        string? ffmpegExecutable = "ffmpeg")
     {
         _processRunner = processRunner ?? throw new ArgumentNullException(nameof(processRunner));
         ArgumentException.ThrowIfNullOrWhiteSpace(executable);
@@ -34,7 +34,7 @@ public sealed class YtDlpYouTubeVideoSource : IYouTubeVideoSource
             throw new ArgumentException("Use um runtime suportado: node, deno ou quickjs.", nameof(javaScriptRuntime));
         _executable = executable;
         _javaScriptRuntime = string.IsNullOrWhiteSpace(javaScriptRuntime) ? null : javaScriptRuntime;
-        _mergeAvailable = mergeAvailable;
+        _ffmpegExecutable = ffmpegExecutable;
     }
 
     public async Task<YouTubeVideoMetadata> GetMetadataAsync(Uri source, CancellationToken cancellationToken)
@@ -105,9 +105,17 @@ public sealed class YtDlpYouTubeVideoSource : IYouTubeVideoSource
         }
     }
 
-    private string[] FormatArguments() => _mergeAvailable
-        ? ["--format", "bestvideo+bestaudio/best", "--merge-output-format", "mkv"]
-        : ["--format", "best[ext=mp4]/best"];
+    private string[] FormatArguments()
+    {
+        if (_ffmpegExecutable is null)
+            return ["--format", "best[ext=mp4]/best"];
+
+        // Nome puro (ffmpeg no PATH) é descoberto pelo próprio yt-dlp; caminho absoluto precisa ser informado.
+        var locationArguments = Path.IsPathRooted(_ffmpegExecutable)
+            ? ["--ffmpeg-location", _ffmpegExecutable]
+            : Array.Empty<string>();
+        return ["--format", "bestvideo+bestaudio/best", "--merge-output-format", "mkv", .. locationArguments];
+    }
 
     private static InvalidDataException CreateMissingOutputException(
         ExternalProcessResult result, string stagingDirectory, string videoId)
