@@ -1,6 +1,6 @@
 # Scraps — backend C#
 
-Backend para o futuro aplicativo desktop em Avalonia, com importação de arquivos autorizados, conversão por qualidade, fila sequencial, cancelamento, progresso e histórico SQLite. A CLI serve para exercitar o fluxo no terminal. A interface Avalonia (`src/Scraps.Desktop`) está em construção: por enquanto é só a janela principal vazia.
+Backend para o futuro aplicativo desktop em Avalonia, com importação de arquivos autorizados, conversão por qualidade, fila sequencial, cancelamento, progresso e histórico SQLite. A CLI serve para exercitar o fluxo no terminal. A interface Avalonia (`src/Scraps.Desktop`) tem abas para nova mídia, fila com progresso e cancelamento, histórico paginado e status das ferramentas.
 
 ## YouTube e uso autorizado
 
@@ -75,7 +75,7 @@ A pasta padrão é `%USERPROFILE%\Downloads\Scraps`; nomes existentes recebem su
 - `src/Scraps.Application`: pedidos e estados da fila, parser do ID do YouTube, modelos de mídia, presets e contratos.
 - `src/Scraps.Infrastructure`: importação/transferência segura, adaptador `yt-dlp`, SQLite, probe via ffprobe, transcodificação via FFmpeg e workflow da CLI.
 - `src/Scraps.Cli`: ponto de entrada do terminal, sobre a composição compartilhada (`ScrapsComposition`).
-- `src/Scraps.Desktop`: interface Avalonia (MVVM com CommunityToolkit.Mvvm). Em construção.
+- `src/Scraps.Desktop`: interface Avalonia (MVVM com CommunityToolkit.Mvvm). Usa a mesma composição da CLI (`ScrapsComposition`) e as mesmas variáveis `SCRAPS_*`.
 - `tests/Scraps.Tests`: testes unitários e de integração com temporários, SQLite, HTTP simulado e processos locais.
 
 ## Validar
