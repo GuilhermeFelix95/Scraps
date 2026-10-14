@@ -41,12 +41,13 @@ public sealed partial class MainViewModel(Func<CancellationToken, Task<ScrapsSer
             // Progresso chega da thread do worker; a fila o leva à thread de interface.
             var queue = new QueueViewModel(services.Coordinator, action => Dispatcher.UIThread.Post(action));
             Queue = queue;
-            NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath(), queue.Track);
             History = new HistoryViewModel(services.History, OpenFolder);
             Tools = new ToolsViewModel(services.Toolchain, services.Updater, services.YtDlpExecutable);
-            StartupMessage = null;
-            // Igual à CLI: a atualização roda na inicialização, com limite de tempo, sem travar a janela.
+            // Como na CLI, a atualização do yt-dlp (com limite de tempo) termina antes de liberar a nova mídia:
+            // nenhuma consulta ou download usa o binário enquanto ele é trocado.
             await Tools.CheckYtDlpAsync(cancellationToken);
+            NewMedia = new NewMediaViewModel(services.Import, services.Coordinator, DefaultDownloadDirectory.GetPath(), queue.Track);
+            StartupMessage = null;
         }
         catch (Exception exception) when (exception is InvalidOperationException or IOException)
         {
