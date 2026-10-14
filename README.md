@@ -1,6 +1,8 @@
-# Scraps — backend C#
+# Scraps
 
-Backend para o futuro aplicativo desktop em Avalonia, com importação de arquivos autorizados, conversão por qualidade, fila sequencial, cancelamento, progresso e histórico SQLite. A CLI serve para exercitar o fluxo no terminal. A interface Avalonia (`src/Scraps.Desktop`) tem abas para nova mídia, fila com progresso e cancelamento, histórico paginado e status das ferramentas.
+Aplicativo desktop em Avalonia (.NET 10), com importação de arquivos autorizados, conversão por qualidade, fila sequencial, cancelamento, progresso e histórico SQLite. A interface (`src/Scraps.Desktop`) tem abas para nova mídia, fila com progresso e cancelamento, histórico paginado e status das ferramentas. A CLI (`src/Scraps.Cli`) usa a mesma lógica no terminal.
+
+> **Aviso de responsabilidade.** O Scraps não autoriza, incentiva nem verifica se você pode baixar um vídeo ou outra mídia. **Baixar, armazenar ou processar conteúdo sem autorização do titular dos direitos é de responsabilidade exclusiva do usuário**, em qualquer jurisdição, e pode violar os termos de uso de plataformas como o YouTube e a legislação de direitos autorais. Use a ferramenta apenas com conteúdo que você tem permissão para baixar. O software é fornecido "como está", sem garantias, conforme a [licença MIT](LICENSE). Este aviso não é aconselhamento jurídico.
 
 ## YouTube e uso autorizado
 
@@ -25,7 +27,7 @@ Ao iniciar, o app roda `yt-dlp -U` no binário embutido, com limite de 30 s. Se 
 ## Requisitos
 
 - .NET 10 SDK.
-- `ffmpeg` e `ffprobe` acessíveis pelo `PATH`.
+- `ffmpeg` e `ffprobe`, em `third-party/` (ver [Ferramentas embutidas](#ferramentas-embutidas-opcional)) ou acessíveis pelo `PATH`.
 - Build do FFmpeg com encoder `libx264` para os presets que convertem.
 - `yt-dlp` atualizado e instalado separadamente; o Scraps não baixa nem instala executáveis automaticamente. No Windows, a distribuição oficial `yt-dlp.exe` já inclui os scripts EJS. Se não estiver no `PATH`, configure `SCRAPS_YTDLP` com o caminho do executável.
 - Para extração completa do YouTube, `yt-dlp` precisa de um runtime JavaScript compatível e dos scripts EJS. Deno 2.3+ é habilitado por padrão. Como alternativa, Node.js 22+ pode ser selecionado com `SCRAPS_YTDLP_JS_RUNTIME=node` (ou `node:C:/caminho/node.exe`). Com a instalação Python, use `python -m pip install -U "yt-dlp[default]"`, que inclui `yt-dlp-ejs`; pacotes de terceiros podem exigir instalação compatível do componente.
@@ -54,11 +56,23 @@ $env:SCRAPS_YTDLP_JS_RUNTIME = 'node'
 
 Se usar Deno, deixe `SCRAPS_YTDLP_JS_RUNTIME` sem definir: o `yt-dlp` habilita Deno por padrão. Para uma instalação Python do `yt-dlp`, consulte a documentação oficial sobre `yt-dlp-ejs`; a instalação manual do componente é `python -m pip install -U yt-dlp-ejs` no mesmo ambiente Python.
 
-## Fluxo da CLI
+## Executar
+
+Terminal:
 
 ```powershell
 dotnet run --project src/Scraps.Cli
 ```
+
+## Interface desktop
+
+```powershell
+dotnet run --project src/Scraps.Desktop
+```
+
+A interface usa as mesmas variáveis `SCRAPS_*` e a mesma pasta padrão e histórico da CLI. A aba de ferramentas mostra a disponibilidade de ffmpeg e ffprobe e os mesmos avisos da CLI.
+
+## Fluxo da CLI
 
 1. Cole uma URL de vídeo individual do YouTube, caminho local ou URL direta.
 2. Confirme que tem autorização para baixar e processar a mídia.
@@ -95,9 +109,9 @@ git config core.hooksPath .githooks
 
 Os testes automatizados não acessam YouTube nem fazem chamadas externas à internet; o adaptador é exercitado com um executor de processo simulado. Para testar apenas a conversão, cole o caminho de um arquivo local próprio e escolha uma qualidade compatível. Para testar o YouTube de verdade, configure `yt-dlp` e o runtime conforme os requisitos e use uma URL de vídeo à qual tenha autorização aplicável.
 
-## Continuação pelo futuro app
+## Composição e trabalhos interrompidos
 
-A interface pode compor `SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath())`, `DestinationPathAllocator`, `LocalFileImporter`, `HttpDirectMediaDownloader`, `YtDlpYouTubeVideoSource`, `FfprobeVideoProbe`, `FfmpegVideoTranscoder` e `MediaDownloadExecutor`; passar o executor ao `DownloadCoordinator`; chamar `StartAsync()` antes de aceitar trabalhos e `StopAsync()` ao fechar. Trabalhos interrompidos são marcados como falhos na inicialização e não retomam automaticamente. Migrações adicionam campos ao histórico existente sem descartar linhas.
+`ScrapsComposition` monta os serviços (histórico SQLite, executores, ferramentas) e é usada pela CLI e pela interface. Trabalhos interrompidos (fechamento do app durante um download) são marcados como falhos na próxima inicialização e não retomam automaticamente. Migrações adicionam campos ao histórico existente sem descartar linhas.
 
 ## Licença
 
@@ -105,4 +119,4 @@ Scraps é distribuído sob a [licença MIT](LICENSE). As ferramentas externas se
 
 ## Logs
 
-As falhas de processamento (worker de downloads) são gravadas em `%LOCALAPPDATA%\Scraps\logs\scraps-AAAA-MM-DD.log`, um arquivo por dia. Arquivos com mais de 7 dias são removidos na inicialização. A CLI e a interface gravam no mesmo lugar.
+As falhas do processamento (worker de downloads) e os erros reportados via `Trace` são gravados em `%LOCALAPPDATA%\Scraps\logs\scraps-AAAA-MM-DD.log`, um arquivo por dia. Arquivos com mais de 7 dias são removidos na inicialização. A CLI e a interface gravam no mesmo lugar.
