@@ -57,6 +57,35 @@ public sealed class ToolsViewModelTests
         Assert.Equal("yt-dlp externo: atualização automática desativada.", viewModel.YtDlpStatus);
     }
 
+    [Fact]
+    public async Task An_unexpected_update_failure_is_reported_and_does_not_escape()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var bundled = Path.Combine(root.FullName, "third-party");
+            Directory.CreateDirectory(bundled);
+            var viewModel = new ToolsViewModel(
+                new MediaToolchainStatus(FfmpegAvailable: true, FfprobeAvailable: true),
+                new YtDlpUpdater(new NotSupportedRunner(), bundled),
+                Path.Combine(bundled, "yt-dlp.exe"));
+
+            await viewModel.CheckYtDlpAsync(CancellationToken.None);
+
+            Assert.StartsWith("Não foi possível atualizar o yt-dlp", viewModel.YtDlpStatus);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    private sealed class NotSupportedRunner : IExternalProcessRunner
+    {
+        public Task<ExternalProcessResult> RunAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken, IProgress<string>? standardOutput, IProgress<string>? standardError) =>
+            throw new NotSupportedException("Plataforma sem suporte a processos.");
+    }
+
     private sealed class FixedRunner(ExternalProcessResult result) : IExternalProcessRunner
     {
         public Task<ExternalProcessResult> RunAsync(string executable, IReadOnlyList<string> arguments, CancellationToken cancellationToken, IProgress<string>? standardOutput, IProgress<string>? standardError) =>

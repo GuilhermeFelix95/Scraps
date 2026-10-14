@@ -75,6 +75,39 @@ public sealed class HistoryViewModelTests
     }
 
     [Fact]
+    public async Task Open_folder_of_a_failed_job_opens_its_destination_directory()
+    {
+        // Antes de concluir, DestinationPath guarda a pasta de destino, não um arquivo.
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));
+            await repository.InitializeAsync();
+            await repository.SaveAsync(DownloadJob.Rehydrate(
+                Guid.NewGuid(),
+                "https://media.example/failed.mp4",
+                root.FullName,
+                DownloadStatus.Failed,
+                BaseTime,
+                BaseTime,
+                errorMessage: "falhou"));
+            string? opened = null;
+            var viewModel = new HistoryViewModel(repository, openFolder: path => opened = path, pageSize: 10);
+            await viewModel.RefreshCommand.ExecuteAsync(null);
+            var item = viewModel.Items.Single();
+
+            Assert.Equal(root.FullName, item.FolderPath);
+            item.OpenFolderCommand.Execute(null);
+
+            Assert.Equal(root.FullName, opened);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
     public async Task Open_folder_is_disabled_when_the_directory_no_longer_exists()
     {
         var root = Directory.CreateTempSubdirectory();
