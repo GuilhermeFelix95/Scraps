@@ -1,11 +1,20 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        xmlns:vm="using:Scraps.Desktop.ViewModels"
+        xmlns:views="using:Scraps.Desktop.Views"
         x:Class="Scraps.Desktop.MainWindow"
         x:DataType="vm:MainViewModel"
-        xmlns:vm="using:Scraps.Desktop.ViewModels"
-        Title="{Binding Title}">
-    <TextBlock Text="{Binding Title}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+        Title="{Binding Title}"
+        MinWidth="480" MinHeight="360" Width="720" Height="560">
+  <Grid RowDefinitions="Auto,*">
+    <TextBlock Grid.Row="0" Margin="16,12" Text="{Binding StartupMessage}"
+               IsVisible="{Binding HasStartupMessage}" TextWrapping="Wrap" Foreground="Firebrick" />
+    <ContentControl Grid.Row="1" Content="{Binding NewMedia}">
+      <ContentControl.DataTemplates>
+        <DataTemplate DataType="vm:NewMediaViewModel">
+          <views:NewMediaView />
+        </DataTemplate>
+      </ContentControl.DataTemplates>
+    </ContentControl>
+  </Grid>
 </Window>

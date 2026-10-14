@@ -1,0 +1,29 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="using:Scraps.Desktop.ViewModels"
+             x:Class="Scraps.Desktop.Views.NewMediaView"
+             x:DataType="vm:NewMediaViewModel">
+  <ScrollViewer>
+    <StackPanel Spacing="12" Margin="16" MaxWidth="640" HorizontalAlignment="Left">
+      <TextBlock Text="Nova mídia" FontSize="20" FontWeight="SemiBold" />
+
+      <TextBox PlaceholderText="Link do YouTube, caminho do arquivo ou URL direta" Text="{Binding Source}" />
+      <CheckBox IsChecked="{Binding IsAuthorized}"
+                Content="Tenho autorização para baixar e processar esta mídia." />
+      <Button Content="Consultar" Command="{Binding ConsultCommand}" />
+
+      <TextBlock Text="{Binding ErrorMessage}" Foreground="Firebrick" TextWrapping="Wrap"
+                 IsVisible="{Binding HasError}" />
+
+      <StackPanel Spacing="8" IsVisible="{Binding HasPreparedMedia}">
+        <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+        <TextBlock Text="{Binding VideoDescription}" />
+        <ComboBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedOption}"
+                  DisplayMemberBinding="{Binding Label}" MinWidth="240" />
+        <Button Content="Enfileirar" Command="{Binding EnqueueCommand}" />
+      </StackPanel>
+
+      <TextBlock Text="{Binding StatusMessage}" TextWrapping="Wrap" />
+    </StackPanel>
+  </ScrollViewer>
+</UserControl>

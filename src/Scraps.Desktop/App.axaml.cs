@@ -2,6 +2,7 @@ using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Scraps.Desktop.ViewModels;
+using Scraps.Infrastructure.Downloads;
 
 namespace Scraps.Desktop;
 
@@ -17,9 +18,21 @@ public partial class App : Avalonia.Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow = new MainWindow { DataContext = new MainViewModel() };
+            var mainViewModel = new MainViewModel(CreateServicesAsync);
+            desktop.MainWindow = new MainWindow { DataContext = mainViewModel };
+            _ = mainViewModel.InitializeAsync();
+            desktop.Exit += (_, _) => mainViewModel.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
 
         base.OnFrameworkInitializationCompleted();
     }
+
+    // Mesmas variáveis da CLI: SCRAPS_FFMPEG, SCRAPS_YTDLP e SCRAPS_YTDLP_JS_RUNTIME.
+    private static Task<ScrapsServices> CreateServicesAsync(CancellationToken cancellationToken) =>
+        ScrapsComposition.CreateAsync(
+            AppContext.BaseDirectory,
+            Environment.GetEnvironmentVariable("SCRAPS_FFMPEG"),
+            Environment.GetEnvironmentVariable("SCRAPS_YTDLP"),
+            Environment.GetEnvironmentVariable("SCRAPS_YTDLP_JS_RUNTIME"),
+            cancellationToken);
 }
