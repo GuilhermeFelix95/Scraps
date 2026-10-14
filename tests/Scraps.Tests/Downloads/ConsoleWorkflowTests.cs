@@ -151,6 +151,7 @@ public sealed class ConsoleWorkflowTests
             await workflow.RunAsync(input, output, CancellationToken.None);
 
             Assert.Contains("Aviso: ffmpeg não encontrado", output.ToString());
+            Assert.Contains("https://ffmpeg.org/download.html", output.ToString());
             Assert.DoesNotContain("2. 720p", output.ToString());
             Assert.NotNull(executor.LastJob);
             Assert.Equal(VideoQualityPreset.Original, executor.LastJob.Preset);
