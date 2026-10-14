@@ -1,8 +1,11 @@
 #!/usr/bin/env bash
-# Portão local antes de cada commit (CLAUDE.md §6): formatação, build sem avisos e testes.
+# Portão local antes de cada commit (CLAUDE.md §6): formatação, build sem avisos, testes e cobertura mínima.
 # Ativação, uma vez por clone: git config core.hooksPath .githooks
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 dotnet format Scraps.sln --verify-no-changes --no-restore
 dotnet build Scraps.sln -c Release --nologo -warnaserror
-dotnet test Scraps.sln -c Release --no-build --nologo
+results="$(mktemp -d)"
+trap 'rm -rf "$results"' EXIT
+dotnet test Scraps.sln -c Release --no-build --nologo --collect:"XPlat Code Coverage" --results-directory "$results"
+scripts/check-coverage.sh "$(find "$results" -name coverage.cobertura.xml | head -n 1)" 80
