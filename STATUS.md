@@ -4,15 +4,13 @@
 
 **Etapas do plano da interface (0 a 7):** concluídas, com revisão independente feita duas vezes e achados corrigidos. Validação visual das quatro abas e leitura do Smart App Control (`VerifiedAndReputablePolicyState = 0`, desligado) registradas em MEMORY.
 
-**Backlog original (catches vazios, ordenação UTC, pré-commit, 403, mensagem de merge):** concluído, exceto o 403.
+**Backlog:** concluído.
 - Pré-commit em `.githooks/pre-commit`, ativado por `git config core.hooksPath .githooks`.
 - Catches vazios substituídos por relato de falha (`WorkerFaulted`) ou `Trace`.
 - Ordenação do histórico em UTC na gravação e no cursor.
 - Mensagem de merge do yt-dlp cita o caminho do ffmpeg configurado.
 - Job cuja reivindicação falha termina como Failed. Se o banco continuar indisponível, o job só é marcado na próxima inicialização (limitação conhecida).
-
-**Aberto:**
-- **403 do YouTube (único item do backlog pendente):** não reproduzido. Com o yt-dlp empacotado (2026.08.19), metadados e URLs de formato saem e um HEAD responde 200. Fechar exige um download real pelo app sem `SCRAPS_YTDLP`, que depende de decisão do usuário.
+- 403 do YouTube: não reproduzido em 2026-10-14. Um trecho de 10 s do mesmo vídeo baixou com o yt-dlp empacotado (2026.08.19), sem 403. O 403 do histórico ficou como caso isolado. Se voltar, registrar o erro com a versão do yt-dlp.
 
 **Propostas fora do escopo (não são backlog; registradas conforme CLAUDE.md §4):**
 - Log persistente para `WorkerFaulted` e `Trace`. Não há infraestrutura de log; destino e retenção são decisão do usuário.
