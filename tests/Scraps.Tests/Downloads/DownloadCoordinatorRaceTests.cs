@@ -99,8 +99,13 @@ public class DownloadCoordinatorRaceTests
             await using var coordinator = new DownloadCoordinator(history, new SlowExecutor(TimeSpan.FromMilliseconds(10), Path.Combine(root.FullName, "next.mp4")));
             await coordinator.StartAsync();
 
-            await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/first.mp4", root.FullName));
+            var first = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/first.mp4", root.FullName));
             var second = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/next.mp4", root.FullName));
+
+            // O job que falhou na reivindicação termina como Failed, e quem espera por ele não fica travado.
+            var failed = await coordinator.WaitForFinishedAsync(first.Id).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(DownloadStatus.Failed, failed.Status);
+            Assert.Equal("database is locked", failed.ErrorMessage);
 
             var finished = await coordinator.WaitForFinishedAsync(second.Id).WaitAsync(TimeSpan.FromSeconds(5));
             Assert.Equal(DownloadStatus.Completed, finished.Status);
