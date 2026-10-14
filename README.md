@@ -91,3 +91,7 @@ Os testes automatizados não acessam YouTube nem fazem chamadas externas à inte
 ## Continuação pelo futuro app
 
 A interface pode compor `SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath())`, `DestinationPathAllocator`, `LocalFileImporter`, `HttpDirectMediaDownloader`, `YtDlpYouTubeVideoSource`, `FfprobeVideoProbe`, `FfmpegVideoTranscoder` e `MediaDownloadExecutor`; passar o executor ao `DownloadCoordinator`; chamar `StartAsync()` antes de aceitar trabalhos e `StopAsync()` ao fechar. Trabalhos interrompidos são marcados como falhos na inicialização e não retomam automaticamente. Migrações adicionam campos ao histórico existente sem descartar linhas.
+
+## Licença
+
+Scraps é distribuído sob a [licença MIT](LICENSE). As ferramentas externas seguem suas próprias licenças, listadas em [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
