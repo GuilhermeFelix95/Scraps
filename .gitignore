@@ -22,3 +22,6 @@ coverage/
 *.db
 *.db-shm
 *.db-wal
+
+# Ferramentas externas baixadas por scripts/fetch-tools.ps1 (não versionar binários)
+third-party/
