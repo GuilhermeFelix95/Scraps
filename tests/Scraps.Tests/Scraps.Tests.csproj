@@ -21,6 +21,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Scraps.Application\Scraps.Application.csproj" />
     <ProjectReference Include="..\..\src\Scraps.Infrastructure\Scraps.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Scraps.Desktop\Scraps.Desktop.csproj" />
   </ItemGroup>
 
 </Project>
