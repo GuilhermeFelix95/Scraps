@@ -29,6 +29,12 @@ await using var coordinator = new DownloadCoordinator(history, executor);
 try
 {
     await coordinator.StartAsync(shutdown.Token);
+    var update = await new YtDlpUpdater(processRunner, Path.Combine(AppContext.BaseDirectory, "third-party"))
+        .UpdateAsync(ytDlpExecutable, shutdown.Token);
+    if (update.Status == ToolUpdateStatus.Failed)
+        Console.WriteLine($"Aviso: não foi possível atualizar o yt-dlp ({update.Message}). Usando a versão instalada.");
+    else if (update.Status == ToolUpdateStatus.Succeeded)
+        Console.WriteLine(update.Message);
     var workflow = new ConsoleWorkflow(videoProbe, httpDownloader, coordinator, history, youTubeVideoSource: youTubeVideoSource, toolchain: toolchain);
     await workflow.RunAsync(Console.In, Console.Out, shutdown.Token);
     return 0;
