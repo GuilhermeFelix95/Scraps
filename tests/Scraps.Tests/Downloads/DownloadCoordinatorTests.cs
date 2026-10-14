@@ -60,6 +60,65 @@ public class DownloadCoordinatorTests
     }
 
     [Fact]
+    public async Task WaitForFinishedAsync_returns_completed_job_and_raises_JobFinished()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));
+            var executor = new TestExecutor();
+            await using var coordinator = new DownloadCoordinator(repository, executor);
+            var finished = new List<DownloadJob>();
+            coordinator.JobFinished += finished.Add;
+            await coordinator.StartAsync();
+            var job = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/video.mp4", root.FullName));
+
+            await executor.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            executor.Release.TrySetResult(Path.Combine(root.FullName, "video.mp4"));
+            var result = await coordinator.WaitForFinishedAsync(job.Id, CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(5));
+            await coordinator.StopAsync();
+
+            Assert.Equal(DownloadStatus.Completed, result.Status);
+            Assert.Equal(Path.Combine(root.FullName, "video.mp4"), result.DestinationPath);
+            Assert.Contains(finished, finishedJob => finishedJob.Id == job.Id);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
+    public async Task WaitForFinishedAsync_returns_cancelled_for_queued_job_without_running_it()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));
+            var executor = new TestExecutor();
+            await using var coordinator = new DownloadCoordinator(repository, executor);
+            await coordinator.StartAsync();
+            var first = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/first.mp4", root.FullName));
+            await executor.Started.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            var second = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/second.mp4", root.FullName));
+            var waiting = coordinator.WaitForFinishedAsync(second.Id, CancellationToken.None);
+
+            Assert.True(await coordinator.CancelAsync(second.Id));
+            var result = await waiting.WaitAsync(TimeSpan.FromSeconds(5));
+            executor.Release.TrySetResult(Path.Combine(root.FullName, "first.mp4"));
+            await WaitForStatus(repository, first.Id, DownloadStatus.Completed);
+            await coordinator.StopAsync();
+
+            Assert.Equal(DownloadStatus.Cancelled, result.Status);
+            Assert.Equal(1, executor.ExecutionCount);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    [Fact]
     public async Task Start_marks_queued_and_downloading_jobs_failed_instead_of_resuming()
     {
         var root = Directory.CreateTempSubdirectory();
