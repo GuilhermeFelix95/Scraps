@@ -16,8 +16,7 @@ try
         Environment.GetEnvironmentVariable("SCRAPS_YTDLP_JS_RUNTIME"),
         shutdown.Token);
     await services.Coordinator.StartAsync(shutdown.Token);
-    var update = await new YtDlpUpdater(services.ProcessRunner, Path.Combine(AppContext.BaseDirectory, "third-party"))
-        .UpdateAsync(services.YtDlpExecutable, shutdown.Token);
+    var update = await services.Updater.UpdateAsync(services.YtDlpExecutable, shutdown.Token);
     if (update.Status == ToolUpdateStatus.Failed)
         Console.WriteLine($"Aviso: não foi possível atualizar o yt-dlp ({update.Message}). Usando a versão instalada.");
     else if (update.Status == ToolUpdateStatus.Succeeded)

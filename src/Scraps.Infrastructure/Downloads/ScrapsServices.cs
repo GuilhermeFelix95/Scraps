@@ -7,6 +7,7 @@ public sealed class ScrapsServices : IAsyncDisposable
 {
     public required DownloadCoordinator Coordinator { get; init; }
     public required IDownloadHistoryRepository History { get; init; }
+    public required YtDlpUpdater Updater { get; init; }
     public required MediaImportService Import { get; init; }
     public required MediaToolchainStatus Toolchain { get; init; }
     public required IExternalProcessRunner ProcessRunner { get; init; }
