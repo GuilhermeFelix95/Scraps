@@ -32,15 +32,7 @@ public sealed partial class QueueItemViewModel : ObservableObject
 
     public bool IsActive => Status is DownloadStatus.Queued or DownloadStatus.Downloading;
 
-    public string StatusText => Status switch
-    {
-        DownloadStatus.Queued => "Na fila",
-        DownloadStatus.Downloading => "Baixando",
-        DownloadStatus.Completed => "Concluído",
-        DownloadStatus.Failed => "Falhou",
-        DownloadStatus.Cancelled => "Cancelado",
-        _ => Status.ToString()
-    };
+    public string StatusText => DownloadStatusText.For(Status);
 
     [RelayCommand(CanExecute = nameof(IsActive))]
     private Task CancelAsync() => _cancel(Id);
