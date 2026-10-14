@@ -15,7 +15,10 @@ public sealed class HistoryItemViewModel
         StatusText = DownloadStatusText.For(job.Status);
         ErrorMessage = job.ErrorMessage;
         CreatedAt = job.CreatedAt;
-        FolderPath = Path.GetDirectoryName(job.DestinationPath) ?? string.Empty;
+        // Só um job concluído tem arquivo em DestinationPath; antes disso o campo guarda a pasta de destino.
+        FolderPath = job.Status == DownloadStatus.Completed
+            ? Path.GetDirectoryName(job.DestinationPath) ?? string.Empty
+            : job.DestinationPath;
         OpenFolderCommand = new RelayCommand(OpenFolder, () => CanOpenFolder);
     }
 

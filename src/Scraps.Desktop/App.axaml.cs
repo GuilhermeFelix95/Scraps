@@ -21,7 +21,9 @@ public partial class App : Avalonia.Application
             var mainViewModel = new MainViewModel(CreateServicesAsync);
             desktop.MainWindow = new MainWindow { DataContext = mainViewModel };
             _ = mainViewModel.InitializeAsync();
-            desktop.Exit += (_, _) => mainViewModel.DisposeAsync().AsTask().GetAwaiter().GetResult();
+            // Bloqueia a UI até liberar os serviços, mas o dispose roda no pool: as continuações internas voltam para a
+            // thread de interface, que está parada aqui, e isso travaria o fechamento.
+            desktop.Exit += (_, _) => Task.Run(async () => await mainViewModel.DisposeAsync()).GetAwaiter().GetResult();
         }
 
         base.OnFrameworkInitializationCompleted();

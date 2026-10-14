@@ -32,6 +32,9 @@ public sealed class DownloadCoordinator : IAsyncDisposable
     // Disparado quando o worker reivindica o job e ele passa a Downloading.
     public event Action<DownloadJob>? JobStarted;
 
+    // Falha inesperada ao processar um job (ex.: erro de banco). O job pode ficar sem conclusão até a próxima inicialização.
+    public event Action<Guid, Exception>? WorkerFaulted;
+
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
         if (_worker is not null) throw new InvalidOperationException("The coordinator has already started.");
@@ -139,41 +142,65 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         {
             await foreach (var jobId in _queue.Reader.ReadAllAsync(shutdownToken))
             {
-                var claim = await ClaimQueuedAsync(jobId, shutdownToken);
-                if (claim is null) continue;
-
-                var downloading = claim.Value.Job;
-                using var jobCancellation = claim.Value.Cancellation;
-                Publish(JobStarted, downloading);
                 try
                 {
-                    var progress = new InlineProgress<DownloadProgress>(value => PublishProgress(jobId, value));
-                    var destinationPath = await _executor.ExecuteAsync(downloading, progress, jobCancellation.Token);
-                    var completed = downloading.TransitionTo(DownloadStatus.Completed, destinationPath: destinationPath);
-                    await _history.SaveAsync(completed, CancellationToken.None);
-                    Finish(completed);
+                    await ProcessJobAsync(jobId, shutdownToken);
                 }
-                catch (OperationCanceledException) when (jobCancellation.IsCancellationRequested)
+                // Erro de banco num job não pode parar a fila: o job segue como está no histórico e o próximo roda.
+                catch (Exception exception) when (exception is not OperationCanceledException)
                 {
-                    var cancelled = downloading.TransitionTo(DownloadStatus.Cancelled);
-                    await _history.SaveAsync(cancelled, CancellationToken.None);
-                    Finish(cancelled);
-                }
-                catch (Exception exception)
-                {
-                    var failed = downloading.TransitionTo(DownloadStatus.Failed, exception.Message);
-                    await _history.SaveAsync(failed, CancellationToken.None);
-                    Finish(failed);
-                }
-                finally
-                {
-                    lock (_activeLock) _active.Remove(jobId);
+                    RaiseWorkerFault(jobId, exception);
                 }
             }
         }
         catch (OperationCanceledException) when (shutdownToken.IsCancellationRequested)
         {
             // Shutdown is an expected signal; unfinished queued jobs are marked failed on next start.
+        }
+    }
+
+    private async Task ProcessJobAsync(Guid jobId, CancellationToken shutdownToken)
+    {
+        var claim = await ClaimQueuedAsync(jobId, shutdownToken);
+        if (claim is null) return;
+
+        var downloading = claim.Value.Job;
+        using var jobCancellation = claim.Value.Cancellation;
+        Publish(JobStarted, downloading);
+        try
+        {
+            var progress = new InlineProgress<DownloadProgress>(value => PublishProgress(jobId, value));
+            var destinationPath = await _executor.ExecuteAsync(downloading, progress, jobCancellation.Token);
+            var completed = downloading.TransitionTo(DownloadStatus.Completed, destinationPath: destinationPath);
+            await _history.SaveAsync(completed, CancellationToken.None);
+            Finish(completed);
+        }
+        catch (OperationCanceledException) when (jobCancellation.IsCancellationRequested)
+        {
+            var cancelled = downloading.TransitionTo(DownloadStatus.Cancelled);
+            await _history.SaveAsync(cancelled, CancellationToken.None);
+            Finish(cancelled);
+        }
+        catch (Exception exception)
+        {
+            var failed = downloading.TransitionTo(DownloadStatus.Failed, exception.Message);
+            await _history.SaveAsync(failed, CancellationToken.None);
+            Finish(failed);
+        }
+        finally
+        {
+            lock (_activeLock) _active.Remove(jobId);
+        }
+    }
+
+    private void RaiseWorkerFault(Guid jobId, Exception exception)
+    {
+        var handlers = WorkerFaulted;
+        if (handlers is null) return;
+        foreach (Action<Guid, Exception> handler in handlers.GetInvocationList())
+        {
+            try { handler(jobId, exception); }
+            catch { /* Observadores não podem derrubar o worker. */ }
         }
     }
 

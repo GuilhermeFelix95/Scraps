@@ -14,13 +14,16 @@ public class DownloadCoordinatorRaceTests
             var history = new GatedHistoryRepository(new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db")));
             await using var coordinator = new DownloadCoordinator(history, new SlowExecutor(TimeSpan.FromSeconds(2), Path.Combine(root.FullName, "race.mp4")));
             await coordinator.StartAsync();
+            // Armado antes do Enqueue: o worker pode reivindicar o job assim que ele entra na fila.
+            history.HoldNextDownloadingSave();
             var job = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/race.mp4", root.FullName));
 
-            history.HoldNextDownloadingSave();
             await history.DownloadingSaveHeld.Task.WaitAsync(TimeSpan.FromSeconds(5));
             var cancel = coordinator.CancelAsync(job.Id);
-            // Se o cancelamento lê o job enquanto a gravação de Downloading está pendente, ele enxerga Queued: é a corrida.
-            await Task.WhenAny(history.ReadWhileHeld.Task, Task.Delay(TimeSpan.FromMilliseconds(300)));
+            // O gate mantém o cancelamento esperando enquanto a gravação de Downloading está pendente: ele não lê o job nesse intervalo.
+            // Pausa fixa de 300 ms: a asserção fica verdadeira mesmo que o cancelamento demore; não prova que a leitura ocorreria depois.
+            await Task.Delay(TimeSpan.FromMilliseconds(300));
+            Assert.False(history.ReadWhileHeld.Task.IsCompleted, "O cancelamento leu o job durante a reivindicação, sem esperar o gate.");
             history.ReleaseHeldSave();
             await cancel;
 
@@ -57,6 +60,53 @@ public class DownloadCoordinatorRaceTests
         {
             root.Delete(true);
         }
+    }
+
+    [Fact]
+    public async Task A_database_error_while_claiming_one_job_does_not_stop_the_next_job()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var history = new FailFirstReadHistoryRepository(new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db")));
+            await using var coordinator = new DownloadCoordinator(history, new SlowExecutor(TimeSpan.FromMilliseconds(10), Path.Combine(root.FullName, "next.mp4")));
+            await coordinator.StartAsync();
+
+            await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/first.mp4", root.FullName));
+            var second = await coordinator.EnqueueAsync(new DownloadRequest("https://media.example/next.mp4", root.FullName));
+
+            var finished = await coordinator.WaitForFinishedAsync(second.Id).WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(DownloadStatus.Completed, finished.Status);
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
+    // Repositório cuja primeira leitura falha, como um "database is locked" durante a reivindicação.
+    private sealed class FailFirstReadHistoryRepository(IDownloadHistoryRepository inner) : IDownloadHistoryRepository
+    {
+        private bool _failed;
+
+        public Task InitializeAsync(CancellationToken cancellationToken = default) => inner.InitializeAsync(cancellationToken);
+
+        public Task SaveAsync(DownloadJob job, CancellationToken cancellationToken = default) => inner.SaveAsync(job, cancellationToken);
+
+        public Task<DownloadJob?> GetAsync(Guid id, CancellationToken cancellationToken = default)
+        {
+            if (!_failed)
+            {
+                _failed = true;
+                throw new InvalidOperationException("database is locked");
+            }
+            return inner.GetAsync(id, cancellationToken);
+        }
+
+        public Task<IReadOnlyList<DownloadJob>> GetAllAsync(CancellationToken cancellationToken = default) => inner.GetAllAsync(cancellationToken);
+
+        public Task<DownloadHistoryPage> GetPageAsync(string? cursor, int pageSize, CancellationToken cancellationToken = default) =>
+            inner.GetPageAsync(cursor, pageSize, cancellationToken);
     }
 
     // Repositório que segura a primeira gravação de Downloading do job, para forçar a janela da corrida.
