@@ -1,0 +1,24 @@
+# Build outputs
+bin/
+obj/
+
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.userosscache
+
+# NuGet
+*.nupkg
+packages/
+
+# Test results and coverage
+TestResults/
+coverage/
+*.trx
+
+# Local data
+*.db
+*.db-shm
+*.db-wal
