@@ -129,6 +129,35 @@ public sealed class ConsoleWorkflowTests
         finally { root.Delete(true); }
     }
 
+    [Fact]
+    public async Task RunAsync_offers_only_original_and_warns_when_ffmpeg_is_missing()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));
+            var executor = new RecordingExecutor();
+            await using var coordinator = new DownloadCoordinator(repository, executor);
+            await coordinator.StartAsync();
+            var videoInfo = new VideoInfo(1920, 1080, TimeSpan.FromSeconds(2));
+            var youtubeSource = new StubYouTubeVideoSource(new YouTubeVideoMetadata("abcdefghijk", "Sample video", videoInfo));
+            using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator());
+            var toolchain = new MediaToolchainStatus(FfmpegAvailable: false, FfprobeAvailable: true);
+            var workflow = new ConsoleWorkflow(new StubVideoProbe(videoInfo), http, coordinator, repository,
+                Path.Combine(root.FullName, "Downloads"), youtubeSource, toolchain: toolchain);
+            var output = new StringWriter();
+            var input = new StringReader("https://youtu.be/abcdefghijk\ns\n1\n");
+
+            await workflow.RunAsync(input, output, CancellationToken.None);
+
+            Assert.Contains("Aviso: ffmpeg não encontrado", output.ToString());
+            Assert.DoesNotContain("2. 720p", output.ToString());
+            Assert.NotNull(executor.LastJob);
+            Assert.Equal(VideoQualityPreset.Original, executor.LastJob.Preset);
+        }
+        finally { root.Delete(true); }
+    }
+
     private sealed class StubVideoProbe(VideoInfo result) : IVideoProbe
     {
         public Task<VideoInfo> ProbeAsync(string path, CancellationToken cancellationToken = default) => Task.FromResult(result);
