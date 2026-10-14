@@ -19,7 +19,7 @@ var ytDlpJavaScriptRuntime = Environment.GetEnvironmentVariable("SCRAPS_YTDLP_JS
 var youTubeVideoSource = new YtDlpYouTubeVideoSource(processRunner,
     ytDlpExecutable,
     string.IsNullOrWhiteSpace(ytDlpJavaScriptRuntime) ? null : ytDlpJavaScriptRuntime,
-    mergeAvailable: toolchain.FfmpegAvailable);
+    ffmpegExecutable: toolchain.FfmpegAvailable ? ffmpegExecutable : null);
 var videoProbe = new FfprobeVideoProbe(processRunner, ffprobeExecutable);
 var transcoder = new FfmpegVideoTranscoder(processRunner, ffmpegExecutable);
 var history = new SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath());

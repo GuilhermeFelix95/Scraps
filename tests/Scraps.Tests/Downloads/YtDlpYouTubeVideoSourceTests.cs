@@ -146,7 +146,7 @@ public sealed class YtDlpYouTubeVideoSourceTests
                     var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
                     File.WriteAllText(arguments[outputIndex + 1].Replace("%(ext)s", "mp4", StringComparison.Ordinal), "video-bytes");
                 });
-            var source = new YtDlpYouTubeVideoSource(runner, mergeAvailable: false);
+            var source = new YtDlpYouTubeVideoSource(runner, ffmpegExecutable: null);
 
             await source.DownloadAsync(new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", root.FullName, null, CancellationToken.None);
 
@@ -154,6 +154,56 @@ public sealed class YtDlpYouTubeVideoSourceTests
             Assert.Contains("best[ext=mp4]/best", arguments);
             Assert.DoesNotContain("bestvideo+bestaudio/best", arguments);
             Assert.DoesNotContain("--merge-output-format", arguments);
+        }
+        finally { root.Delete(true); }
+    }
+
+    // Reproduz o erro real: ffmpeg embutido em third-party/ não estava no PATH, e o yt-dlp baixou as faixas sem mesclar.
+    [Fact]
+    public async Task DownloadAsync_passes_bundled_ffmpeg_location_to_yt_dlp()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var ffmpegPath = Path.Combine(root.FullName, "third-party", "ffmpeg", "ffmpeg.exe");
+            var runner = new StubProcessRunner(new ExternalProcessResult(0, string.Empty, string.Empty),
+                onRun: arguments =>
+                {
+                    var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
+                    File.WriteAllText(arguments[outputIndex + 1].Replace("%(ext)s", "mkv", StringComparison.Ordinal), "video-bytes");
+                });
+            var source = new YtDlpYouTubeVideoSource(runner, ffmpegExecutable: ffmpegPath);
+
+            await source.DownloadAsync(new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", root.FullName, null, CancellationToken.None);
+
+            var arguments = runner.Arguments!.ToArray();
+            var locationIndex = Array.IndexOf(arguments, "--ffmpeg-location");
+            Assert.True(locationIndex >= 0, "yt-dlp precisa receber a localização do ffmpeg embutido.");
+            Assert.Equal(ffmpegPath, arguments[locationIndex + 1]);
+            Assert.Contains("bestvideo+bestaudio/best", arguments);
+        }
+        finally { root.Delete(true); }
+    }
+
+    [Fact]
+    public async Task DownloadAsync_omits_ffmpeg_location_when_ffmpeg_comes_from_path()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var runner = new StubProcessRunner(new ExternalProcessResult(0, string.Empty, string.Empty),
+                onRun: arguments =>
+                {
+                    var outputIndex = Array.IndexOf(arguments.ToArray(), "--output");
+                    File.WriteAllText(arguments[outputIndex + 1].Replace("%(ext)s", "mkv", StringComparison.Ordinal), "video-bytes");
+                });
+            var source = new YtDlpYouTubeVideoSource(runner, ffmpegExecutable: "ffmpeg");
+
+            await source.DownloadAsync(new Uri("https://youtu.be/abcdefghijk"), "abcdefghijk", root.FullName, null, CancellationToken.None);
+
+            var arguments = runner.Arguments!.ToArray();
+            Assert.DoesNotContain("--ffmpeg-location", arguments);
+            Assert.Contains("bestvideo+bestaudio/best", arguments);
         }
         finally { root.Delete(true); }
     }
