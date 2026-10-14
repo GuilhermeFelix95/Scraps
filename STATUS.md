@@ -1,17 +1,20 @@
 # Status
 
-**Estado atual (2026-10-14):** código sob licença MIT (`LICENSE`). Backend CLI em C# (.NET 10) com fila de downloads, conversão via FFmpeg, histórico SQLite e adaptador `yt-dlp`. 137 testes passando localmente. Cobertura de linhas medida com coverlet: Application 92,4%, Infrastructure 82,1% (acima da meta de 80% da lógica de negócio); Desktop 52,5% (apresentação, fora da meta). Interface Avalonia em `src/Scraps.Desktop` com abas: nova mídia, fila, histórico e ferramentas. A CLI e a interface usam a mesma composição (`ScrapsComposition`) e o mesmo `YtDlpUpdater`.
+**Estado atual (2026-10-14):** código sob licença MIT (`LICENSE`). Backend CLI em C# (.NET 10) com fila de downloads, conversão via FFmpeg, histórico SQLite e adaptador `yt-dlp`. 140 testes passando localmente. Cobertura de linhas medida pelo pré-commit: Application 91,9%, Infrastructure 83,2% (mínimo 80%); Desktop 52,5% (apresentação, fora da meta). Interface Avalonia em `src/Scraps.Desktop` com abas: nova mídia, fila, histórico e ferramentas.
 
 **Etapas do plano da interface (0 a 7):** concluídas, com revisão independente feita duas vezes e achados corrigidos. Validação visual das quatro abas e leitura do Smart App Control (`VerifiedAndReputablePolicyState = 0`, desligado) registradas em MEMORY.
 
-**Backlog:** concluído.
-- Pré-commit em `.githooks/pre-commit`, ativado por `git config core.hooksPath .githooks`.
-- Catches vazios substituídos por relato de falha (`WorkerFaulted`) ou `Trace`.
-- Ordenação do histórico em UTC na gravação e no cursor.
-- Mensagem de merge do yt-dlp cita o caminho do ffmpeg configurado.
-- Job cuja reivindicação falha termina como Failed. Se o banco continuar indisponível, o job só é marcado na próxima inicialização (limitação conhecida).
-- 403 do YouTube: não reproduzido em 2026-10-14. Um trecho de 10 s do mesmo vídeo baixou com o yt-dlp empacotado (2026.08.19), sem 403. O 403 do histórico ficou como caso isolado. Se voltar, registrar o erro com a versão do yt-dlp.
+**Backlog original:** concluído. Pré-commit (formatação, build com avisos como erro, testes e cobertura mínima), catches vazios substituídos, ordenação UTC, mensagem de merge do ffmpeg, falha de reivindicação do worker, 403 do YouTube fechado como não reproduzido.
 
-**Propostas fora do escopo (não são backlog; registradas conforme CLAUDE.md §4):**
-- Log persistente para `WorkerFaulted` e `Trace`. Não há infraestrutura de log; destino e retenção são decisão do usuário.
-- Verificação automática de cobertura no pré-commit (lenta). A medição é manual.
+**Propostas executadas nesta etapa:**
+- Log em arquivo diário em `%LOCALAPPDATA%\Scraps\logs`, retenção de 7 dias. Registra falhas de worker (`WorkerFaulted`) e falhas reportadas via `Trace`. Limite de retenção e pasta são os padrões; mudar exige decisão do usuário.
+- Cobertura automática no pré-commit com limite de 80% (`scripts/check-coverage.sh`), para Application e Infrastructure. O limite é o da regra do CLAUDE.md §6.
+
+**Limitações conhecidas:**
+- 403 do YouTube: fechado com base em um download de 10 s fora do app (2026-10-14). Se voltar no app, registrar o erro com a versão do yt-dlp.
+- Job cuja reivindicação falha termina como Failed; se o banco continuar indisponível, o job só é marcado na próxima inicialização.
+- O log não rotaciona dentro do mesmo dia; com o app aberto por muito tempo, um dia pode crescer.
+
+**Próximos passos:**
+1. Usar o app e acompanhar `%LOCALAPPDATA%\Scraps\logs` para novos erros.
+2. Se quiser outro destino ou retenção para o log, ajustar `AppLog.RetentionDays` e `AppLog.DefaultDirectory`.

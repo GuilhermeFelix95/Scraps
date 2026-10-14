@@ -3,6 +3,7 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Markup.Xaml;
 using Scraps.Desktop.ViewModels;
 using Scraps.Infrastructure.Downloads;
+using Scraps.Infrastructure.Logging;
 
 namespace Scraps.Desktop;
 
@@ -16,6 +17,7 @@ public partial class App : Avalonia.Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        AppLog.UseDefault();
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             var mainViewModel = new MainViewModel(CreateServicesAsync);

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Scraps.Application.Downloads;
 
 namespace Scraps.Infrastructure.Downloads;
@@ -28,9 +29,12 @@ public static class ScrapsComposition
         var history = new SqliteDownloadHistoryRepository(DatabaseInitializer.GetDefaultDatabasePath());
         var executor = new MediaDownloadExecutor(new LocalFileImporter(allocator), httpDownloader, videoProbe, transcoder, allocator, youTube);
 
+        var coordinator = new DownloadCoordinator(history, executor);
+        coordinator.WorkerFaulted += (jobId, exception) => Trace.TraceError($"Falha ao processar o job {jobId}: {exception}");
+
         return new ScrapsServices
         {
-            Coordinator = new DownloadCoordinator(history, executor),
+            Coordinator = coordinator,
             History = history,
             Updater = new YtDlpUpdater(processRunner, Path.Combine(baseDirectory, "third-party")),
             Import = new MediaImportService(youTube, videoProbe, httpDownloader, toolchain),

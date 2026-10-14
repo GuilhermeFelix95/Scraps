@@ -87,7 +87,7 @@ dotnet build Scraps.sln -c Release
 dotnet format Scraps.sln --verify-no-changes --no-restore
 ```
 
-Antes de commitar, ative o portão local (uma vez por clone), que roda formatação, build sem avisos e testes:
+Antes de commitar, ative o portão local (uma vez por clone), que roda formatação, build sem avisos, testes e cobertura mínima de 80% na Application e na Infrastructure (`scripts/check-coverage.sh`):
 
 ```bash
 git config core.hooksPath .githooks
@@ -102,3 +102,7 @@ A interface pode compor `SqliteDownloadHistoryRepository(DatabaseInitializer.Get
 ## Licença
 
 Scraps é distribuído sob a [licença MIT](LICENSE). As ferramentas externas seguem suas próprias licenças, listadas em [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
+
+## Logs
+
+As falhas de processamento (worker de downloads) são gravadas em `%LOCALAPPDATA%\Scraps\logs\scraps-AAAA-MM-DD.log`, um arquivo por dia. Arquivos com mais de 7 dias são removidos na inicialização. A CLI e a interface gravam no mesmo lugar.

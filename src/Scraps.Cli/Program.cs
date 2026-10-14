@@ -1,5 +1,7 @@
 using Scraps.Infrastructure.Downloads;
+using Scraps.Infrastructure.Logging;
 
+AppLog.UseDefault();
 var shutdown = new CancellationTokenSource();
 Console.CancelKeyPress += (_, eventArgs) =>
 {
