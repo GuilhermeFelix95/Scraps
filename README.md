@@ -18,7 +18,7 @@ Para não depender do PATH, rode o script de preparo. Ele baixa `yt-dlp` e `ffmp
 pwsh -File scripts/fetch-tools.ps1
 ```
 
-O build copia `third-party/` para junto do executável. A ordem de resolução é: variável de ambiente (`SCRAPS_YTDLP`, `SCRAPS_FFMPEG`), depois `third-party/`, e por último o PATH. Os binários não são versionados no git.
+O build copia `third-party/` para junto do executável. A ordem de resolução é: variável de ambiente (`SCRAPS_YTDLP`, `SCRAPS_FFMPEG`), depois `third-party/`, e por último o PATH. Os binários não são versionados no git. Licenças e links do código-fonte das ferramentas estão em [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
 Ao iniciar, o app roda `yt-dlp -U` no binário embutido, com limite de 30 s. Se a atualização falhar, ele avisa e segue com a versão instalada. Instalações externas (PATH ou `SCRAPS_YTDLP`) não são atualizadas pelo app.
 
