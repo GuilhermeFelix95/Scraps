@@ -97,6 +97,29 @@ public class SqliteDownloadHistoryPageTests
         }
     }
 
+    [Fact]
+    public async Task GetPage_orders_by_instant_even_when_jobs_were_saved_with_different_offsets()
+    {
+        var root = Directory.CreateTempSubdirectory();
+        try
+        {
+            var repository = await CreateRepositoryAsync(root);
+            // Mesmo instante (12:00 UTC) do primeiro job, com offset local de +03:00: o texto "15:00+03" sairia antes de "13:00+00".
+            var earlier = CreateJob(root, 0, BaseTime.ToOffset(TimeSpan.FromHours(3)));
+            var later = CreateJob(root, 1, BaseTime.AddHours(1));
+            await repository.SaveAsync(earlier);
+            await repository.SaveAsync(later);
+
+            var page = await repository.GetPageAsync(cursor: null, pageSize: 10);
+
+            Assert.Equal(new[] { later.Id, earlier.Id }, page.Items.Select(job => job.Id));
+        }
+        finally
+        {
+            root.Delete(true);
+        }
+    }
+
     private static async Task<SqliteDownloadHistoryRepository> CreateRepositoryAsync(DirectoryInfo root)
     {
         var repository = new SqliteDownloadHistoryRepository(Path.Combine(root.FullName, "history.db"));

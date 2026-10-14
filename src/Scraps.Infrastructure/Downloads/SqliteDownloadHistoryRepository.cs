@@ -1,3 +1,4 @@
+using System.Globalization;
 using Microsoft.Data.Sqlite;
 using Scraps.Application.Downloads;
 
@@ -46,7 +47,8 @@ public sealed class SqliteDownloadHistoryRepository : IDownloadHistoryRepository
         command.Parameters.AddWithValue("$source", job.Source);
         command.Parameters.AddWithValue("$destination", job.DestinationPath);
         command.Parameters.AddWithValue("$status", job.Status.ToString());
-        command.Parameters.AddWithValue("$created", job.CreatedAt.ToString("O"));
+        // UTC na gravação: a ordenação por texto só é correta com um único formato de data e offset.
+        command.Parameters.AddWithValue("$created", job.CreatedAt.ToUniversalTime().ToString("O", CultureInfo.InvariantCulture));
         command.Parameters.AddWithValue("$updated", job.UpdatedAt.ToString("O"));
         command.Parameters.AddWithValue("$error", (object?)job.ErrorMessage ?? DBNull.Value);
         command.Parameters.AddWithValue("$youtubeVideoId", (object?)job.YouTubeVideoId ?? DBNull.Value);

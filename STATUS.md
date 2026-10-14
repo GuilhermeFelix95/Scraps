@@ -1,19 +1,19 @@
 # Status
 
-**Estado atual (2026-10-14):** código sob licença MIT (`LICENSE`). Backend CLI em C# (.NET 10) com fila de downloads, conversão via FFmpeg, histórico SQLite e adaptador `yt-dlp`. 132 testes passando localmente; cobertura de linhas: Application 90,7%, Infrastructure 82%, Desktop 49% (apresentação, fora da meta). Interface Avalonia em `src/Scraps.Desktop` com abas: nova mídia, fila (progresso e cancelamento), histórico (paginação por cursor, abrir pasta) e ferramentas. A CLI e a interface usam a mesma composição (`ScrapsComposition`) e o mesmo `YtDlpUpdater`.
+**Estado atual (2026-10-14):** código sob licença MIT (`LICENSE`). Backend CLI em C# (.NET 10) com fila de downloads, conversão via FFmpeg, histórico SQLite e adaptador `yt-dlp`. 137 testes passando localmente; cobertura de linhas: Application 90,7%, Infrastructure 82%, Desktop 49% (apresentação, fora da meta). Interface Avalonia em `src/Scraps.Desktop` com abas: nova mídia, fila (progresso, cancelamento e erro de acompanhamento), histórico (paginação por cursor, abrir pasta) e ferramentas. A CLI e a interface usam a mesma composição (`ScrapsComposition`) e o mesmo `YtDlpUpdater`.
 
-**Etapa 7 do plano:** revisão independente (subagente Revisor) feita duas vezes. A segunda, sobre o código já corrigido, apontou 8 achados; os 4 bloqueantes, o teste instável e o texto de teste superlativo foram corrigidos neste branch (ver MEMORY). Validação visual feita por captura da janela Release das quatro abas: layout e textos corretos, com um defeito cosmético pendente. Smart App Control: `VerifiedAndReputablePolicyState = 0` (desligado) em leitura; não alterado.
+**Etapas do plano da interface (0 a 7):** concluídas. A revisão independente foi feita duas vezes; os achados da segunda foram verificados e corrigidos, inclusive os de baixa severidade (5 e 6) e o separador do histórico. Validação visual das quatro abas e leitura do Smart App Control (`VerifiedAndReputablePolicyState = 0`, desligado) registradas em MEMORY.
 
-**Pendências dos achados da revisão (não corrigidas nesta etapa):**
-- `DownloadCoordinator.CancelAsync` pode devolver `true` para um job que termina como Completed entre a gravação final e a remoção de `_active` (achado 6, baixa severidade).
-- `QueueViewModel.Track` dispara `FollowAsync` sem tratar exceção; se a leitura falhar, o item fica com o último status e o botão Cancelar continua habilitado (achado 5).
-- Um job cuja gravação falha durante a reivindicação fica como Queued no histórico e o `WaitForFinishedAsync` dele não conclui até a próxima inicialização (limitação da correção de worker).
-- Histórico: quando não há erro, aparece `Concluído · ` com separador vazio (`HistoryView.axaml:18`).
-- Achados de revisão sem tratamento: o `WorkerFaulted` ainda não tem consumidor nem log.
+**Backlog da revisão:** catch vazios removidos (observadores e runner de processo agora reportam a falha pelo evento `WorkerFaulted` ou por `Trace`); ordenação do histórico em UTC na gravação e no cursor; hook de pré-commit em `.githooks/pre-commit` (formatação, build com avisos como erro e testes) ativado por `git config core.hooksPath .githooks`.
+
+**Pendências que dependem de você ou de uma decisão:**
+- **403 do YouTube:** não reproduzido nesta verificação. Com o yt-dlp empacotado (2026.08.19), os metadados e as URLs de formato saem e uma requisição HEAD responde 200. Para fechar: rode o app sem `SCRAPS_YTDLP` e baixe o mesmo vídeo; se o 403 voltar, a investigação segue com o log dessa execução.
+- Um job cuja gravação falha durante a reivindicação fica como Queued até a próxima inicialização, e o acompanhamento dele não conclui antes disso. Aceito como limitação; a correção completa exige um estado de falha de worker no histórico.
+- `WorkerFaulted` e os `Trace` não têm log persistente: não há infraestrutura de log no app. Decidir se a CLI e a interface devem gravar em arquivo.
+- Dados antigos: linhas gravadas antes desta mudança mantêm o offset original. Como `DownloadJob.Create` usa UTC, o esperado é que sejam UTC, mas não verifiquei um banco real de produção.
 
 **Próximos passos:**
-1. Corrigir o separador vazio do histórico e tratar `FollowAsync` (achado 5) com teste antes da correção.
-2. Revisar os catch vazios ou só comentados: `SystemExternalProcessRunner.cs:69-70` e `Publish`/`PublishProgress` (aceitáveis como isolamento de observadores, mas sem log).
-3. Ordenação do histórico é textual sobre `created_at`. O revisor leu que `DownloadJob.Create` usa UTC, o que tornaria a ordenação correta; não testei isso contra um banco real com dados antigos. Verificar e, se necessário, migrar para UTC.
-4. Hook de pré-commit (build, format, testes) e checagem automática de cobertura.
-5. Investigar o 403 do download completo do YouTube (depende de testar com `SCRAPS_YTDLP` removido) e ajustar a mensagem de falha do merge (`YtDlpYouTubeVideoSource.cs`).
+1. Você: testar o download do YouTube pelo app sem `SCRAPS_YTDLP` e me enviar o erro, se houver.
+2. Decidir sobre log persistente (CLI e interface) antes de qualquer implementação.
+3. Medir a cobertura da lógica de negócio no pré-commit ou em comando separado, se quiser o limite de 80% automatizado.
+4. Migrar o histórico para um estado de falha de worker, para que nenhum job fique sem conclusão.

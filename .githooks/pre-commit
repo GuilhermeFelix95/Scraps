@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+# Portão local antes de cada commit (CLAUDE.md §6): formatação, build sem avisos e testes.
+# Ativação, uma vez por clone: git config core.hooksPath .githooks
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+dotnet format Scraps.sln --verify-no-changes --no-restore
+dotnet build Scraps.sln -c Release --nologo -warnaserror
+dotnet test Scraps.sln -c Release --no-build --nologo

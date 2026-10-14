@@ -9,11 +9,12 @@
       <ItemsControl ItemsSource="{Binding Jobs}">
         <ItemsControl.ItemTemplate>
           <DataTemplate x:DataType="vm:QueueItemViewModel">
-            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" Margin="0,4">
+            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" Margin="0,4">
               <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding Label}" TextWrapping="Wrap" />
               <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding StatusText}" Opacity="0.8" />
               <ProgressBar Grid.Row="2" Grid.Column="0" Margin="0,4,0,0" Minimum="0" Maximum="1"
                            Value="{Binding Progress}" IsVisible="{Binding IsActive}" />
+              <TextBlock Grid.Row="3" Grid.Column="0" Foreground="Firebrick" TextWrapping="Wrap" Text="{Binding FollowError}" />
               <Button Grid.Row="0" Grid.Column="1" Grid.RowSpan="3" Content="Cancelar"
                       Command="{Binding CancelCommand}" Margin="8,0,0,0" />
             </Grid>

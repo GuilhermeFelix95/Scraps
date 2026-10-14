@@ -26,6 +26,10 @@ public sealed partial class QueueItemViewModel : ObservableObject
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     private DownloadStatus _status;
 
+    // Erro ao acompanhar o job na leitura do histórico; vazio enquanto o acompanhamento funciona.
+    [ObservableProperty]
+    private string? _followError;
+
     // Fração de 0 a 1; permanece em 0 quando o executor não informa progresso.
     [ObservableProperty]
     private double _progress;

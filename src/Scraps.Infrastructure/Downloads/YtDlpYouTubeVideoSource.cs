@@ -117,7 +117,7 @@ public sealed class YtDlpYouTubeVideoSource : IYouTubeVideoSource
         return ["--format", "bestvideo+bestaudio/best", "--merge-output-format", "mkv", .. locationArguments];
     }
 
-    private static InvalidDataException CreateMissingOutputException(
+    private InvalidDataException CreateMissingOutputException(
         ExternalProcessResult result, string stagingDirectory, string videoId)
     {
         string[] entries;
@@ -148,12 +148,18 @@ public sealed class YtDlpYouTubeVideoSource : IYouTubeVideoSource
 
         var entryList = entries.Length == 0 ? "(nenhuma)" : string.Join(", ", entries);
         var mergeHint = CountSplitMediaFiles(entries, videoId) > 1
-            ? " As faixas de vídeo e áudio foram baixadas separadamente e não foram mescladas: verifique se o ffmpeg está instalado e acessível pelo PATH."
+            ? $" As faixas de vídeo e áudio foram baixadas separadamente e não foram mescladas: {FfmpegLocationHint()}."
             : string.Empty;
         return new InvalidDataException(
             $"yt-dlp terminou com código {result.ExitCode}, mas não foi encontrado exatamente um arquivo de vídeo não vazio para o ID '{videoId}'.{mergeHint} " +
             $"Staging: '{stagingDirectory}'. Entradas encontradas: {entryList}. Saída do processo:{Environment.NewLine}{output}");
     }
+
+    // Caminho absoluto informado é o que precisa ser conferido; nome puro depende do PATH.
+    private string FfmpegLocationHint() =>
+        _ffmpegExecutable is not null && Path.IsPathRooted(_ffmpegExecutable)
+            ? $"verifique se o ffmpeg em '{_ffmpegExecutable}' existe e pode ser executado"
+            : "verifique se o ffmpeg está instalado e acessível pelo PATH";
 
     private static int CountSplitMediaFiles(string[] entries, string videoId) =>
         entries.Count(name => name.StartsWith($"{videoId}.", StringComparison.Ordinal)

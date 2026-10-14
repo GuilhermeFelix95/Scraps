@@ -87,6 +87,12 @@ dotnet build Scraps.sln -c Release
 dotnet format Scraps.sln --verify-no-changes --no-restore
 ```
 
+Antes de commitar, ative o portão local (uma vez por clone), que roda formatação, build sem avisos e testes:
+
+```bash
+git config core.hooksPath .githooks
+```
+
 Os testes automatizados não acessam YouTube nem fazem chamadas externas à internet; o adaptador é exercitado com um executor de processo simulado. Para testar apenas a conversão, cole o caminho de um arquivo local próprio e escolha uma qualidade compatível. Para testar o YouTube de verdade, configure `yt-dlp` e o runtime conforme os requisitos e use uma URL de vídeo à qual tenha autorização aplicável.
 
 ## Continuação pelo futuro app
