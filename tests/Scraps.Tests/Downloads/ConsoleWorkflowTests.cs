@@ -22,7 +22,7 @@ public sealed class ConsoleWorkflowTests
             var handler = new CountingHandler();
             using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator(), handler,
                 (_, _) => Task.FromResult(new[] { IPAddress.Parse("8.8.8.8") }));
-            var workflow = new ConsoleWorkflow(probe, http, coordinator, repository, Path.Combine(root.FullName, "Downloads", "Scraps"), youtubeSource);
+            var workflow = new ConsoleWorkflow(new MediaImportService(youtubeSource, probe, http, null), coordinator, Path.Combine(root.FullName, "Downloads", "Scraps"));
             var output = new StringWriter();
             var input = new StringReader("https://youtu.be/abcdefghijk\ns\n3\n");
 
@@ -55,7 +55,7 @@ public sealed class ConsoleWorkflowTests
             var probe = new StubVideoProbe(videoInfo);
             var youtubeSource = new StubYouTubeVideoSource(new YouTubeVideoMetadata("abcdefghijk", "Watch video", videoInfo));
             using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator());
-            var workflow = new ConsoleWorkflow(probe, http, coordinator, repository, Path.Combine(root.FullName, "Downloads"), youtubeSource);
+            var workflow = new ConsoleWorkflow(new MediaImportService(youtubeSource, probe, http, null), coordinator, Path.Combine(root.FullName, "Downloads"));
             var output = new StringWriter();
             var input = new StringReader("https://www.youtube.com/watch?v=abcdefghijk\ns\n3\n");
 
@@ -86,7 +86,7 @@ public sealed class ConsoleWorkflowTests
             var handler = new CountingHandler();
             using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator(), handler,
                 (_, _) => Task.FromResult(new[] { IPAddress.Parse("8.8.8.8") }));
-            var workflow = new ConsoleWorkflow(probe, http, coordinator, repository, Path.Combine(root.FullName, "Downloads"));
+            var workflow = new ConsoleWorkflow(new MediaImportService(null, probe, http, null), coordinator, Path.Combine(root.FullName, "Downloads"));
             var output = new StringWriter();
             var input = new StringReader("https://youtu.be/abcdefghijk/extra\ns\n1\n");
 
@@ -113,7 +113,7 @@ public sealed class ConsoleWorkflowTests
             var handler = new CountingHandler();
             using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator(), handler,
                 (_, _) => Task.FromResult(new[] { IPAddress.Parse("8.8.8.8") }));
-            var workflow = new ConsoleWorkflow(probe, http, coordinator, repository, Path.Combine(root.FullName, "Downloads"));
+            var workflow = new ConsoleWorkflow(new MediaImportService(null, probe, http, null), coordinator, Path.Combine(root.FullName, "Downloads"));
             var output = new StringWriter();
             var input = new StringReader("https://cdn.example/video.mp4\ns\n1\n");
 
@@ -143,8 +143,8 @@ public sealed class ConsoleWorkflowTests
             var youtubeSource = new StubYouTubeVideoSource(new YouTubeVideoMetadata("abcdefghijk", "Sample video", videoInfo));
             using var http = new HttpDirectMediaDownloader(new DestinationPathAllocator());
             var toolchain = new MediaToolchainStatus(FfmpegAvailable: false, FfprobeAvailable: true);
-            var workflow = new ConsoleWorkflow(new StubVideoProbe(videoInfo), http, coordinator, repository,
-                Path.Combine(root.FullName, "Downloads"), youtubeSource, toolchain: toolchain);
+            var workflow = new ConsoleWorkflow(new MediaImportService(youtubeSource, new StubVideoProbe(videoInfo), http, toolchain), coordinator,
+                Path.Combine(root.FullName, "Downloads"), toolchain);
             var output = new StringWriter();
             var input = new StringReader("https://youtu.be/abcdefghijk\ns\n1\n");
 

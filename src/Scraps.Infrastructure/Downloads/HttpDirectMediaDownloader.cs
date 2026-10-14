@@ -4,7 +4,7 @@ using Scraps.Application.Downloads;
 
 namespace Scraps.Infrastructure.Downloads;
 
-public sealed class HttpDirectMediaDownloader : IDisposable
+public sealed class HttpDirectMediaDownloader : IDirectMediaDownloader, IDisposable
 {
     private const int MaxRedirects = 5;
     private readonly HttpClient _httpClient;
