@@ -13,6 +13,8 @@ public sealed class DownloadCoordinator : IAsyncDisposable
     private readonly object _activeLock = new();
     // Registrado antes de entrar na fila, para que a conclusão nunca aconteça sem um waiter que a veja.
     private readonly ConcurrentDictionary<Guid, TaskCompletionSource<DownloadJob>> _completions = new();
+    // Serializa a reivindicação do job pelo worker e a decisão de cancelá-lo enquanto ainda está na fila.
+    private readonly SemaphoreSlim _stateGate = new(1, 1);
     private Task? _worker;
     private bool _stopped;
 
@@ -26,6 +28,9 @@ public sealed class DownloadCoordinator : IAsyncDisposable
 
     // Disparado uma vez por job quando ele chega a Completed, Failed ou Cancelled.
     public event Action<DownloadJob>? JobFinished;
+
+    // Disparado quando o worker reivindica o job e ele passa a Downloading.
+    public event Action<DownloadJob>? JobStarted;
 
     public async Task StartAsync(CancellationToken cancellationToken = default)
     {
@@ -63,31 +68,48 @@ public sealed class DownloadCoordinator : IAsyncDisposable
 
     public async Task<bool> CancelAsync(Guid jobId, CancellationToken cancellationToken = default)
     {
-        var job = await _history.GetAsync(jobId, cancellationToken);
-        if (job is null) return false;
-
-        if (job.Status == DownloadStatus.Queued)
+        var cancelledWhileQueued = await CancelIfQueuedAsync(jobId, cancellationToken);
+        if (cancelledWhileQueued is not null)
         {
-            var cancelled = job.TransitionTo(DownloadStatus.Cancelled);
-            await _history.SaveAsync(cancelled, cancellationToken);
-            Finish(cancelled);
+            Finish(cancelledWhileQueued);
             return true;
         }
 
-        if (job.Status == DownloadStatus.Downloading)
-        {
-            lock (_activeLock)
-            {
-                if (_active.TryGetValue(jobId, out var source))
-                {
-                    source.Cancel();
-                    return true;
-                }
-            }
-        }
-
-        return false;
+        return CancelIfActive(jobId);
     }
+
+    // Sob o mesmo gate do worker: o job não pode ser reivindicado enquanto a decisão de cancelar é tomada.
+    private async Task<DownloadJob?> CancelIfQueuedAsync(Guid jobId, CancellationToken cancellationToken)
+    {
+        await _stateGate.WaitAsync(cancellationToken);
+        try
+        {
+            var job = await _history.GetAsync(jobId, cancellationToken);
+            if (job?.Status != DownloadStatus.Queued) return null;
+
+            var cancelled = job.TransitionTo(DownloadStatus.Cancelled);
+            await _history.SaveAsync(cancelled, cancellationToken);
+            return cancelled;
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
+    }
+
+    private bool CancelIfActive(Guid jobId)
+    {
+        lock (_activeLock)
+        {
+            if (!_active.TryGetValue(jobId, out var source)) return false;
+            source.Cancel();
+            return true;
+        }
+    }
+
+    // Estado atual do job no histórico, para quem começa a acompanhar um job que já pode ter começado.
+    public Task<DownloadJob?> GetJobAsync(Guid jobId, CancellationToken cancellationToken = default) =>
+        _history.GetAsync(jobId, cancellationToken);
 
     public async Task RecoverInterruptedAsync(CancellationToken cancellationToken = default)
     {
@@ -117,14 +139,12 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         {
             await foreach (var jobId in _queue.Reader.ReadAllAsync(shutdownToken))
             {
-                var job = await _history.GetAsync(jobId, shutdownToken);
-                if (job?.Status != DownloadStatus.Queued) continue;
+                var claim = await ClaimQueuedAsync(jobId, shutdownToken);
+                if (claim is null) continue;
 
-                var downloading = job.TransitionTo(DownloadStatus.Downloading);
-                await _history.SaveAsync(downloading, shutdownToken);
-                using var jobCancellation = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken);
-                lock (_activeLock) _active[jobId] = jobCancellation;
-
+                var downloading = claim.Value.Job;
+                using var jobCancellation = claim.Value.Cancellation;
+                Publish(JobStarted, downloading);
                 try
                 {
                     var progress = new InlineProgress<DownloadProgress>(value => PublishProgress(jobId, value));
@@ -157,21 +177,41 @@ public sealed class DownloadCoordinator : IAsyncDisposable
         }
     }
 
+    // Reivindica o job só se ele ainda estiver na fila, e registra o cancelamento antes de liberar o gate.
+    private async Task<(DownloadJob Job, CancellationTokenSource Cancellation)?> ClaimQueuedAsync(Guid jobId, CancellationToken shutdownToken)
+    {
+        await _stateGate.WaitAsync(shutdownToken);
+        try
+        {
+            var job = await _history.GetAsync(jobId, shutdownToken);
+            if (job?.Status != DownloadStatus.Queued) return null;
+
+            var downloading = job.TransitionTo(DownloadStatus.Downloading);
+            await _history.SaveAsync(downloading, shutdownToken);
+            var cancellation = CancellationTokenSource.CreateLinkedTokenSource(shutdownToken);
+            lock (_activeLock) _active[jobId] = cancellation;
+            return (downloading, cancellation);
+        }
+        finally
+        {
+            _stateGate.Release();
+        }
+    }
+
     // Observadores (UI, testes) rodam antes de liberar os waiters, para que quem espera já veja o evento.
     private void Finish(DownloadJob finished)
     {
-        PublishJobFinished(finished);
+        Publish(JobFinished, finished);
         if (_completions.TryRemove(finished.Id, out var completion))
             completion.TrySetResult(finished);
     }
 
-    private void PublishJobFinished(DownloadJob finished)
+    private static void Publish<T>(Action<T>? handlers, T value)
     {
-        var handlers = JobFinished;
         if (handlers is null) return;
-        foreach (Action<DownloadJob> handler in handlers.GetInvocationList())
+        foreach (Action<T> handler in handlers.GetInvocationList())
         {
-            try { handler(finished); }
+            try { handler(value); }
             catch { /* Observadores não podem derrubar o worker nem deixar o job sem conclusão. */ }
         }
     }
